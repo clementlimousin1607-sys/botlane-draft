@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Botlane Draft — documentation</title>
+<meta name="description" content="Comment utiliser Botlane Draft, comment les notes sont calculées, et comment les données, la mise à jour hebdo et l'analyse Claude fonctionnent.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%234F8BFF%22/%3E%3Cpath d=%22M9 7h8.5a5 5 0 0 1 2.9 9.1A5.5 5.5 0 0 1 18 26H9z%22 fill=%22%23fff%22/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<script>
+// Même thème que l'appli (réglage "Thème" enregistré sur cet appareil)
+try{const t=JSON.parse(localStorage.getItem("bld:theme"));if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}
+</script>
+<style>
+:root{
+  --bg:#0D1422; --panel:#141D31; --panel2:#1A2540; --line:#26344F; --ink:#EDEBE4; --muted:#8C98B2;
+  --blue:#4F8BFF; --blue-soft:rgba(79,139,255,.16); --red:#FF5D5D; --red-soft:rgba(255,93,93,.15);
+  --amber:#F5C14B; --amber-soft:rgba(245,193,75,.14); --good:#5FD39A; --bad:#FF7A7A;
+  --display:"Barlow Condensed","Arial Narrow","Roboto Condensed",system-ui,sans-serif;
+  --body:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:ui-monospace,"SF Mono","Cascadia Code",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){
+    --bg:#EDF0F6; --panel:#FFFFFF; --panel2:#F4F6FA; --line:#D6DCE8; --ink:#141A2A; --muted:#5A6680;
+    --blue:#2F6BEB; --blue-soft:rgba(47,107,235,.12); --red:#DB3A41; --red-soft:rgba(219,58,65,.1);
+    --amber:#B07C00; --amber-soft:rgba(176,124,0,.12); --good:#16895A; --bad:#C8343B; color-scheme:light;
+  }
+}
+:root[data-theme="light"]{
+  --bg:#EDF0F6; --panel:#FFFFFF; --panel2:#F4F6FA; --line:#D6DCE8; --ink:#141A2A; --muted:#5A6680;
+  --blue:#2F6BEB; --blue-soft:rgba(47,107,235,.12); --red:#DB3A41; --red-soft:rgba(219,58,65,.1);
+  --amber:#B07C00; --amber-soft:rgba(176,124,0,.12); --good:#16895A; --bad:#C8343B; color-scheme:light;
+}
+:root[data-theme="dark"]{
+  --bg:#0D1422; --panel:#141D31; --panel2:#1A2540; --line:#26344F; --ink:#EDEBE4; --muted:#8C98B2;
+  --blue:#4F8BFF; --blue-soft:rgba(79,139,255,.16); --red:#FF5D5D; --red-soft:rgba(255,93,93,.15);
+  --amber:#F5C14B; --amber-soft:rgba(245,193,75,.14); --good:#5FD39A; --bad:#FF7A7A; color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:16px}
+@media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 16px/1.6 var(--body);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+a{color:var(--blue);text-underline-offset:3px}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+.wrap{max-width:1120px;margin:0 auto;padding:16px 16px 56px}
+
+/* Header */
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:22px}
+.brand{display:flex;align-items:baseline;gap:10px;text-decoration:none;color:inherit}
+.brand b{font:800 26px/1 var(--display);color:var(--blue)} .brand span{font:800 26px/1 var(--display)} .brand i{font:800 26px/1 var(--display);color:var(--red);font-style:normal}
+.brand small{font:600 13px/1 var(--display);color:var(--muted);border:1px solid var(--line);padding:4px 7px;border-radius:4px}
+.back{background:var(--amber);color:#1a1405;border-radius:8px;padding:9px 14px;font:700 15px/1 var(--display);text-decoration:none}
+
+/* Layout */
+.layout{display:grid;gap:22px;grid-template-columns:minmax(0,1fr)}
+@media(min-width:960px){.layout{grid-template-columns:220px minmax(0,1fr);align-items:start}.toc{position:sticky;top:16px}}
+.toc{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}
+.toc b{display:block;font:700 15px/1 var(--display);color:var(--muted);margin:2px 4px 8px}
+.toc ol{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+.toc a{display:block;padding:6px 8px;border-radius:7px;color:var(--ink);text-decoration:none;font:600 16px/1.2 var(--display)}
+.toc a:hover{background:var(--panel2)}
+@media(max-width:959px){.toc ol{display:flex;flex-wrap:wrap;gap:4px}.toc a{background:var(--panel2);font-size:15px}}
+main{min-width:0;display:grid;gap:18px;grid-template-columns:minmax(0,1fr)}
+
+/* Content */
+.hero{padding:6px 2px 4px}
+.hero h1{font:800 40px/1.02 var(--display);margin:0 0 10px;letter-spacing:.2px}
+.hero p{margin:0;color:var(--muted);font-size:17px;max-width:62ch}
+section.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 18px 20px}
+h2{font:800 28px/1.1 var(--display);margin:0 0 6px}
+h2 .for{display:inline-block;vertical-align:middle;margin-left:8px;font:700 12px/1 var(--display);letter-spacing:.4px;text-transform:uppercase;padding:4px 7px;border-radius:4px;background:var(--blue-soft);color:var(--blue)}
+h2 .for.dev{background:var(--amber-soft);color:var(--amber)}
+h3{font:700 20px/1.2 var(--display);margin:20px 0 6px}
+p{margin:0 0 10px;max-width:72ch}
+.lead{color:var(--muted);margin-bottom:14px}
+ul,ol{margin:0 0 10px;padding-left:22px;max-width:72ch}
+li{margin:3px 0}
+code{font:500 .88em/1.4 var(--mono);background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:1px 5px;overflow-wrap:anywhere}
+pre{margin:8px 0 14px;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:12px 14px;overflow-x:auto;font:500 13.5px/1.55 var(--mono)}
+pre code{background:none;border:0;padding:0;font:inherit;overflow-wrap:normal}
+.note{border-left:3px solid var(--amber);background:var(--amber-soft);border-radius:0 8px 8px 0;padding:10px 12px;margin:10px 0 14px;max-width:72ch}
+.note.info{border-color:var(--blue);background:var(--blue-soft)}
+.note p:last-child{margin:0}
+
+/* Tables */
+.tbl{overflow-x:auto;margin:8px 0 14px;border:1px solid var(--line);border-radius:9px}
+table{border-collapse:collapse;width:100%;font-size:14.5px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font:700 14px/1.2 var(--display);color:var(--muted);background:var(--panel2);white-space:nowrap}
+tr:last-child td{border-bottom:0}
+td code{white-space:nowrap;overflow-wrap:normal}
+td.n{font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:600}
+.pos{color:var(--good)} .neg{color:var(--bad)}
+
+/* Steps */
+.steps{list-style:none;padding:0;counter-reset:s;display:grid;gap:10px;max-width:none}
+.steps li{counter-increment:s;display:grid;grid-template-columns:32px 1fr;gap:10px;align-items:start;margin:0}
+.steps li::before{content:counter(s);width:28px;height:28px;border-radius:99px;background:var(--blue);color:#fff;display:grid;place-items:center;font:700 15px/1 var(--display)}
+.steps b{font-weight:600}
+
+/* Flow diagrams */
+.flow{display:flex;align-items:stretch;gap:8px;margin:12px 0 16px;flex-wrap:wrap}
+.flow .box{flex:1 1 150px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;min-width:0}
+.flow .box b{display:block;font:700 16px/1.15 var(--display);margin-bottom:3px}
+.flow .box span{display:block;font-size:13.5px;color:var(--muted);line-height:1.4}
+.flow .box.hl{border-color:var(--blue);background:var(--blue-soft)}
+.flow .arrow{flex:none;align-self:center;color:var(--muted);font:700 20px/1 var(--display)}
+@media(max-width:640px){.flow{flex-direction:column}.flow .arrow{transform:rotate(90deg);align-self:center}}
+
+/* Tier chips */
+.tiers{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 12px}
+.tiers span{font:700 14px/1 var(--display);padding:6px 9px;border-radius:6px;background:var(--panel2);border:1px solid var(--line)}
+.tiers span em{font-style:normal;color:var(--muted);font-weight:600;margin-left:6px}
+footer{color:var(--muted);font-size:13px;margin-top:26px;line-height:1.5}
+footer p{max-width:none}
+@media(max-width:420px){.hero h1{font-size:34px}h2{font-size:25px}section.card{padding:16px 14px 18px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="../"><b>Bot</b><span>lane</span><i>Draft</i><small>Documentation</small></a>
+    <a class="back" href="../">Ouvrir l'appli</a>
+  </header>
+
+  <div class="layout">
+    <nav class="toc" aria-label="Sommaire">
+      <b>Sommaire</b>
+      <ol>
+        <li><a href="#utiliser">Utiliser l'appli</a></li>
+        <li><a href="#note">Calcul des notes</a></li>
+        <li><a href="#donnees">Les données</a></li>
+        <li><a href="#maj">Mise à jour hebdo</a></li>
+        <li><a href="#claude">Analyse Claude</a></li>
+        <li><a href="#dev">Développer, publier</a></li>
+        <li><a href="#mentions">Mentions</a></li>
+      </ol>
+    </nav>
+
+    <main>
+      <div class="hero">
+        <h1>Comment marche Botlane Draft</h1>
+        <p>Botlane Draft te dit quel ADC ou quel support prendre pendant ta draft League of Legends. Il note chaque champion selon la méta du patch, les matchups, la synergie avec ton duo et la compo des deux équipes.</p>
+      </div>
+
+      <section class="card" id="utiliser">
+        <h2>Utiliser l'appli <span class="for">Joueurs</span></h2>
+        <p class="lead">Tout se passe sur une seule page, et rien n'est envoyé nulle part : tes champions et ta draft restent enregistrés sur ton appareil.</p>
+        <ol class="steps">
+          <li><span><b>Choisis ton rôle</b> en haut : « Je joue ADC » ou « Je joue Support ».</span></li>
+          <li><span><b>Remplis la draft</b> au fur et à mesure des picks. Touche une case, tape le début d'un nom puis Entrée pour prendre le premier résultat. Les abréviations courantes marchent (mf, naut, blitz, j4…).</span></li>
+          <li><span><b>Ajoute ton pool</b> avec « Mes champions ». L'étoile ★ marque un main, qui reçoit un bonus de confort. L'onglet « Mon duo » sert à saisir les champions de ton pote.</span></li>
+          <li><span><b>Lis le verdict.</b> La grande carte donne le meilleur choix et ses raisons. En dessous : les meilleurs duos de vos deux pools, ton pool classé, puis un plan de lane et des conseils contre les champions d'en face.</span></li>
+          <li><span><b>Ouvre « Top, jungle et mid »</b> pour affiner avec toute la compo. Les conseils sur les dégâts AP/AD, les plongeurs, les tanks, les soins et le poke en dépendent.</span></li>
+        </ol>
+        <p style="margin-top:12px">La <b>Roulette</b> tire un champion ou un duo au hasard : dans ton pool, dans tout le rôle, dans vos deux pools, ou dans tout le roster. Le bouton <b>Thème</b> alterne entre le thème de l'appareil, clair et sombre.</p>
+      </section>
+
+      <section class="card" id="note">
+        <h2>Comment la note est calculée <span class="for">Joueurs</span></h2>
+        <p class="lead">Chaque champion part de 50. Chaque critère ajoute ou retire des points, et le total est multiplié par 1,15 puis borné entre 5 et 99. Les raisons affichées sous le verdict sont les critères qui pèsent le plus.</p>
+        <pre><code>note = 50 + 1,15 × (somme des points)      bornée entre 5 et 99</code></pre>
+
+        <h3>Les critères</h3>
+        <div class="tbl"><table>
+          <thead><tr><th>Critère</th><th>Points</th><th>Ce qui compte</th></tr></thead>
+          <tbody>
+            <tr><td>Force méta</td><td class="n">−4 à +10</td><td>Le score de tier du patch, plus 1,2 point par point de winrate au-dessus de 50 % (en moins en dessous). Un champion rarement joué dans le rôle prend −3.</td></tr>
+            <tr><td>Stats de matchup</td><td class="n"><span class="pos">+7</span> / <span class="neg">−7</span></td><td>Tu fais partie des champions qui battent le plus souvent ton adversaire direct, ou l'inverse.</td></tr>
+            <tr><td>Matchups connus</td><td class="n"><span class="pos">+5</span> / <span class="neg">−5</span></td><td>Des cas classiques, par exemple le Bouclier noir de Morgana contre un hook.</td></tr>
+            <tr><td>Face à face en lane</td><td class="n">−5 à +4</td><td>Portée, force en début de partie contre scaling, mobilité face à un engage, murs qui bloquent les projectiles. Pour un support : l'archétype contre celui d'en face et la pression de lane.</td></tr>
+            <tr><td>Synergie de duo</td><td class="n">−2 à +6</td><td>+6 pour un duo éprouvé ce patch. Sinon le style : un engage avec une ADC all-in, un enchanteur avec un hypercarry, un gardien avec une ADC sans dash.</td></tr>
+            <tr><td>Compo des équipes</td><td class="n">−3 à +3</td><td>Plongeurs adverses, tanks, poke, équilibre AP/AD de ton équipe, manque de frontline ou d'engage.</td></tr>
+            <tr><td>Ton main</td><td class="n"><span class="pos">+4</span></td><td>Le confort compte : un champion marqué ★ dans ton pool.</td></tr>
+          </tbody>
+        </table></div>
+        <p>La note d'un <b>duo</b> est la moyenne de la note de l'ADC, calculée avec ce support à ses côtés, et de la note du support, calculée avec cette ADC. Les petits chiffres à droite d'un duo sont ces deux notes.</p>
+
+        <h3>Tiers et étiquettes</h3>
+        <p>Le tier vient du score méta du patch :</p>
+        <div class="tiers"><span>S+<em>≥ 64</em></span><span>S<em>≥ 58,5</em></span><span>A<em>≥ 50</em></span><span>B<em>≥ 41,5</em></span><span>C<em>≥ 36</em></span><span>D<em>en dessous</em></span></div>
+        <p>L'étiquette sous le nom vient de la note finale : <b>Pick idéal</b> dès 80, <b>Très bon choix</b> dès 68, <b>Solide</b> dès 55, <b>Jouable</b> dès 42, <b>Risqué</b> en dessous.</p>
+        <p>Le <b>plan de lane</b> compare la force en début de partie des deux duos : l'early de l'ADC plus la pression de lane du support. Un écart de 2 points ou plus donne un plan agressif ou prudent.</p>
+        <div class="note info"><p>C'est un guide, pas une vérité absolue. Le détail exact de chaque règle se trouve dans les fonctions <code>scoreADC</code>, <code>scoreSUP</code> et <code>compoPts</code> de <code>index.html</code>.</p></div>
+      </section>
+
+      <section class="card" id="donnees">
+        <h2>Les données : data.json <span class="for dev">Maintenance</span></h2>
+        <p class="lead">Tout ce qui bouge avec le patch vit dans <code>data.json</code>, que la page charge au démarrage. Le reste est dans <code>index.html</code>.</p>
+        <div class="tbl"><table>
+          <thead><tr><th>Champ</th><th>Format</th><th>Rôle</th></tr></thead>
+          <tbody>
+            <tr><td><code>patch</code></td><td><code>"26.19"</code></td><td>Patch des stats, affiché dans l'en-tête.</td></tr>
+            <tr><td><code>updated</code></td><td><code>"2026-09-24"</code></td><td>Date du relevé, affichée en bas de page.</td></tr>
+            <tr><td><code>source</code>, <code>scope</code></td><td>texte</td><td>D'où viennent les stats, sur quelles élos.</td></tr>
+            <tr><td><code>notesPatch</code></td><td><code>"26.19"</code></td><td>Patch des notes de <code>PATCH_NOTES</code>. S'il diffère de <code>patch</code>, l'appli écrit « Ce qui a changé au patch … ».</td></tr>
+            <tr><td><code>META</code></td><td><code>{adc: {Id: [score, winrate]}, sup: {…}}</code></td><td>Score de tier (échelle METAsrc, environ 36 à 67) et winrate en %.</td></tr>
+            <tr><td><code>COUNTERS</code></td><td><code>{adc: {Id: [Id, …]}, sup: {…}}</code></td><td>Pour chaque champion, ceux du même rôle qui le battent le plus souvent.</td></tr>
+            <tr><td><code>ADC</code></td><td><code>{Id: {r, e, s, m, k, …}}</code></td><td>Profil de chaque ADC proposée (voir ci-dessous).</td></tr>
+            <tr><td><code>SUP</code></td><td><code>{Id: {a, lane, peel, eng, …}}</code></td><td>Profil de chaque support proposé.</td></tr>
+            <tr><td><code>DUOS</code></td><td><code>["Caitlyn|Lux", …]</code></td><td>Duos éprouvés, format <code>ADC|Support</code>.</td></tr>
+            <tr><td><code>TIPS</code></td><td><code>{Id: "conseil"}</code></td><td>Le conseil affiché contre ce champion.</td></tr>
+            <tr><td><code>PATCH_NOTES</code></td><td><code>[[nom, type, texte], …]</code></td><td>Type : <code>buff</code>, <code>nerf</code>, <code>mixte</code> ou <code>changement</code>.</td></tr>
+          </tbody>
+        </table></div>
+        <p>Les identifiants sont ceux de Riot (Data Dragon) : <code>MissFortune</code>, <code>Kaisa</code>, <code>TahmKench</code>… Seuls les champions qui ont un profil <code>ADC</code> ou <code>SUP</code> sont proposés ; un champion sans stats <code>META</code> est affiché « hors méta ».</p>
+
+        <h3>Codes des profils</h3>
+        <div class="tbl"><table>
+          <thead><tr><th>Profil</th><th>Clé</th><th>Sens</th></tr></thead>
+          <tbody>
+            <tr><td rowspan="5">ADC</td><td><code>r</code></td><td>Portée : 1 courte, 2 moyenne, 3 longue.</td></tr>
+            <tr><td><code>e</code>, <code>s</code>, <code>m</code></td><td>Force en early, scaling, mobilité, de 1 à 5.</td></tr>
+            <tr><td><code>k</code></td><td>Style : <code>hyper</code> (hypercarry), <code>bully</code> (lane forte), <code>allin</code>, <code>poke</code>, <code>util</code> (utilitaire), <code>ap</code> (mage bot).</td></tr>
+            <tr><td><code>proj</code>, <code>tank</code></td><td>1 si ses dégâts passent par des projectiles, 1 si elle fait fondre les tanks.</td></tr>
+            <tr><td><code>ww</code>, <code>ss</code></td><td>1 si elle a un mur ou un W qui bloque les projectiles, 1 si elle peut annuler un engage.</td></tr>
+            <tr><td rowspan="3">Support</td><td><code>a</code></td><td>Archétype : <code>engage</code>, <code>hook</code>, <code>enchant</code>, <code>mage</code>, <code>warden</code> (gardien).</td></tr>
+            <tr><td><code>lane</code>, <code>peel</code>, <code>eng</code></td><td>Pression de lane et peel de 1 à 5, engage de 0 à 5.</td></tr>
+            <tr><td><code>heal</code>, <code>proj</code></td><td>1 s'il soigne, 1 s'il dépend de skillshots.</td></tr>
+          </tbody>
+        </table></div>
+
+        <h3>Ce qui reste dans index.html</h3>
+        <p>La liste des champions (<code>CHAMPS</code>), leurs icônes en base64 (<code>ICONS</code>, Data Dragon 16.19.1), les matchups connus (<code>KNOWN</code>) et les listes de compo (<code>DIVE</code>, <code>TANKY</code>, <code>HEALS</code>, <code>POKE</code>, <code>ENGAGE</code>, <code>AP_EXTRA</code>, <code>AD_OVERRIDE</code>). Un nouveau champion doit y être ajouté avant d'apparaître dans <code>data.json</code>.</p>
+
+        <h3>Modifier les données à la main</h3>
+        <p>Édite <code>data.json</code>, vérifie-le, puis publie. Le workflow de publication refuse un fichier invalide.</p>
+        <pre><code>node scripts/validate-data.mjs     # erreurs = bloquant, avertissements = à regarder
+./deploy.sh</code></pre>
+      </section>
+
+      <section class="card" id="maj">
+        <h2>Mise à jour hebdomadaire des stats <span class="for dev">Maintenance</span></h2>
+        <p class="lead">Une GitHub Action remplace <code>META</code> et <code>COUNTERS</code> par les stats du patch en cours, puis republie le site. Profils, duos, conseils et patch notes restent écrits à la main.</p>
+        <div class="flow" role="img" aria-label="Déclenchement, récupération des stats, vérifications, commit de data.json, publication">
+          <div class="box"><b>Déclenchement</b><span>Chaque lundi à 05:23 UTC, ou à la main</span></div><span class="arrow" aria-hidden="true">→</span>
+          <div class="box hl"><b>Source de stats</b><span>Module <code>scripts/sources/&lt;nom&gt;.mjs</code>, patch courant lu sur Data Dragon</span></div><span class="arrow" aria-hidden="true">→</span>
+          <div class="box"><b>Vérifications</b><span>Format, identifiants connus, au moins 60 % des champions de la version publiée</span></div><span class="arrow" aria-hidden="true">→</span>
+          <div class="box"><b>Commit</b><span><code>data.json</code>, seulement si les stats ont changé</span></div><span class="arrow" aria-hidden="true">→</span>
+          <div class="box"><b>Publication</b><span>Workflow « Publier le site »</span></div>
+        </div>
+        <div class="note"><p><b>Aucune source n'est branchée pour l'instant.</b> Les grands sites de stats interdisent l'extraction automatique dans leurs conditions d'utilisation, donc le choix de la source reste à faire. Tant que la variable <code>STATS_SOURCE</code> est vide, l'Action tourne sans rien modifier.</p></div>
+
+        <h3>Brancher une source</h3>
+        <ol>
+          <li>Copie <code>scripts/sources/_template.mjs</code> en <code>scripts/sources/&lt;nom&gt;.mjs</code> et implémente <code>fetchStats</code>. Elle reçoit le patch et la liste des champions, et renvoie <code>META</code> et <code>COUNTERS</code> au format ci-dessus.</li>
+          <li>Si la source demande une clé, enregistre-la comme secret <code>STATS_API_KEY</code> : Settings, puis Secrets and variables, puis Actions.</li>
+          <li>Crée la variable de dépôt <code>STATS_SOURCE</code> avec le nom du module.</li>
+          <li>Lance une simulation pour voir le résultat sans rien committer :</li>
+        </ol>
+        <pre><code>gh workflow run update-stats.yml -f dry_run=true
+gh run watch</code></pre>
+        <p>Le résumé du run liste les champions entrés ou sortis, les plus gros écarts de score et les counters modifiés. Les scores doivent rester sur l'échelle de l'appli (environ 36 à 67), sinon les tiers se décalent : c'est au module de convertir.</p>
+        <div class="note info"><p>GitHub désactive les tâches planifiées d'un dépôt public après 60 jours sans activité. Si ça arrive, réactive-la dans l'onglet Actions.</p></div>
+      </section>
+
+      <section class="card" id="claude">
+        <h2>Analyse par Claude <span class="for dev">Maintenance</span></h2>
+        <p class="lead">Le bouton « Demander l'avis de Claude » passe par un petit relais sur Cloudflare Workers. Il garde la clé API Anthropic secrète et limite le nombre de demandes, pour que le bouton marche sans compte Claude.</p>
+        <div class="flow" role="img" aria-label="Navigateur, relais Cloudflare Worker, API Anthropic">
+          <div class="box"><b>Navigateur</b><span>Envoie seulement les noms des champions de la draft et les notes de l'appli</span></div><span class="arrow" aria-hidden="true">→</span>
+          <div class="box hl"><b>Relais (Worker)</b><span>Vérifie l'origine et les noms, compte les quotas, écrit le prompt avec la méta de <code>data.json</code></span></div><span class="arrow" aria-hidden="true">→</span>
+          <div class="box"><b>API Anthropic</b><span>Réponse en streaming, renvoyée au fur et à mesure</span></div>
+        </div>
+        <p>Le relais écrit le prompt lui-même et n'accepte que de vrais noms de champions : il ne sert qu'à analyser une draft. Si le modèle décline la demande, l'API la relance d'elle-même sur son modèle de repli recommandé.</p>
+
+        <h3>Déployer le relais</h3>
+        <p>Il faut un compte Cloudflare (l'offre gratuite suffit) et une clé API sur <a href="https://console.anthropic.com/">console.anthropic.com</a>. Le script déploie le Worker, enregistre la clé comme secret et renseigne son adresse dans <code>index.html</code> :</p>
+        <pre><code>worker/setup.sh      # connexion Cloudflare dans le navigateur, puis colle ta clé API
+./deploy.sh          # publie index.html avec l'adresse du relais</code></pre>
+        <p>À la main, cela revient à remplacer <code>GITHUB_LOGIN</code> dans <code>worker/wrangler.toml</code>, lancer <code>npx wrangler deploy</code> puis <code>npx wrangler secret put ANTHROPIC_API_KEY</code>. Il reste à mettre l'URL du Worker dans la balise <code>&lt;meta name="ai-endpoint"&gt;</code> d'<code>index.html</code>. Balise vide : le bouton est masqué.</p>
+
+        <h3>Réglages (worker/wrangler.toml)</h3>
+        <div class="tbl"><table>
+          <thead><tr><th>Variable</th><th>Défaut</th><th>Effet</th></tr></thead>
+          <tbody>
+            <tr><td><code>ALLOWED_ORIGINS</code></td><td>ta page GitHub</td><td>Sites autorisés à appeler le relais, séparés par des virgules.</td></tr>
+            <tr><td><code>DATA_URL</code></td><td>data.json publié</td><td>Source du patch, des meilleurs picks et des patch notes injectés dans le prompt.</td></tr>
+            <tr><td><code>MODEL</code></td><td class="n">claude-opus-5</td><td>Modèle utilisé.</td></tr>
+            <tr><td><code>EFFORT</code></td><td class="n">low</td><td>Profondeur de réflexion : réponse courte et rapide. À vider pour un modèle qui ne l'accepte pas, comme <code>claude-haiku-4-5</code>.</td></tr>
+            <tr><td><code>FALLBACKS</code></td><td class="n">default</td><td>Relance automatique sur un modèle de repli si le modèle décline. À vider avec Haiku.</td></tr>
+            <tr><td><code>MAX_TOKENS</code></td><td class="n">4096</td><td>Plafond de sortie par demande, réflexion comprise.</td></tr>
+            <tr><td><code>PER_IP_PER_MINUTE</code></td><td class="n">3</td><td>Demandes par minute et par connexion (IPv6 : par bloc /64).</td></tr>
+            <tr><td><code>PER_IP_PER_DAY</code></td><td class="n">20</td><td>Demandes par jour (UTC) et par connexion.</td></tr>
+            <tr><td><code>GLOBAL_PER_DAY</code></td><td class="n">100</td><td>Plafond total par jour, qui borne la facture.</td></tr>
+          </tbody>
+        </table></div>
+        <div class="note"><p><b>Coût.</b> Une analyse coûte de l'ordre de 2 centimes de dollar avec les réglages par défaut (estimation : environ 500 tokens en entrée, moins de 1 000 en sortie). Le plafond de 100 demandes par jour borne donc la facture autour de 2 $ par jour. Fixe aussi une limite de dépense mensuelle dans la console Anthropic.</p></div>
+
+        <h3>Données personnelles</h3>
+        <p>Le relais reçoit les noms des champions de ta draft et de vos pools, et les notes calculées par l'appli, rien d'autre. Ton adresse IP sert uniquement à compter tes demandes ; le compteur est effacé après 2 jours sans demande. La demande transite par Cloudflare et Anthropic.</p>
+      </section>
+
+      <section class="card" id="dev">
+        <h2>Développer et publier <span class="for dev">Maintenance</span></h2>
+        <h3>Lancer en local</h3>
+        <p>Ouverte directement depuis le disque (<code>file://</code>), la page ne peut pas lire <code>data.json</code>. Lance un petit serveur dans le dossier :</p>
+        <pre><code>python3 -m http.server 8000        # puis http://localhost:8000</code></pre>
+        <h3>Tests</h3>
+        <pre><code>node --test "scripts/**/*.test.mjs" "worker/test/**/*.test.mjs"
+node scripts/validate-data.mjs</code></pre>
+        <p>Ils tournent aussi avant chaque publication. Les tests couvrent la validation de <code>data.json</code>, la mise à jour des stats (source absente, stats identiques, résultat tronqué, champion inconnu) et le relais (validation, prompt, quotas, CORS).</p>
+        <h3>Relais en local</h3>
+        <p>Crée <code>worker/.dev.vars</code>, qui n'est jamais commité :</p>
+        <pre><code>ANTHROPIC_API_KEY=sk-ant-...
+ALLOWED_ORIGINS=http://localhost:8000
+DATA_URL=http://localhost:8000/data.json</code></pre>
+        <p>Lance ensuite <code>cd worker &amp;&amp; npm install &amp;&amp; npx wrangler dev</code>. Mets <code>http://localhost:8787/</code> dans la balise <code>ai-endpoint</code>, sans committer ce changement.</p>
+        <h3>Publier</h3>
+        <p><code>./deploy.sh</code> crée le dépôt public <code>botlane-draft</code> au premier lancement, active GitHub Pages en mode « GitHub Actions » et pousse. Ensuite, il committe et pousse les changements. Le workflow « Publier le site » teste, vérifie <code>data.json</code> puis publie <code>index.html</code>, <code>data.json</code> et <code>docs/</code>.</p>
+        <div class="tbl"><table>
+          <thead><tr><th>Fichier</th><th>Contenu</th></tr></thead>
+          <tbody>
+            <tr><td><code>index.html</code></td><td>L'appli : interface, moteur de notes, icônes, liste des champions.</td></tr>
+            <tr><td><code>data.json</code></td><td>Données du patch.</td></tr>
+            <tr><td><code>docs/</code></td><td>Cette page.</td></tr>
+            <tr><td><code>scripts/</code></td><td>Validation, mise à jour des stats, modèle de source, tests.</td></tr>
+            <tr><td><code>worker/</code></td><td>Relais Claude (Cloudflare Worker) et ses tests.</td></tr>
+            <tr><td><code>.github/workflows/</code></td><td><code>pages.yml</code> (publication), <code>update-stats.yml</code> (stats hebdo).</td></tr>
+          </tbody>
+        </table></div>
+      </section>
+
+      <section class="card" id="mentions">
+        <h2>Mentions</h2>
+        <p>Stats : voir la source et la date en bas de l'appli. Patch notes : notes officielles de Riot Games. Icônes et liste des champions : Data Dragon de Riot Games. Analyse : Claude, par Anthropic.</p>
+        <p>Botlane Draft n'est pas approuvé par Riot Games et ne reflète pas les opinions de Riot Games ni de quiconque officiellement impliqué dans la production ou la gestion des propriétés de Riot Games. Riot Games et toutes les propriétés associées sont des marques commerciales ou déposées de Riot Games, Inc.</p>
+        <p lang="en" style="color:var(--muted)">Botlane Draft isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games or anyone officially involved in producing or managing Riot Games properties. Riot Games, and all associated properties are trademarks or registered trademarks of Riot Games, Inc.</p>
+      </section>
+    </main>
+  </div>
+  <footer><p><a href="../">Retour à Botlane Draft</a></p></footer>
+</div>
+</body>
+</html>

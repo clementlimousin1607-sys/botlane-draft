@@ -1,0 +1,52 @@
+# Publishes the site (index.html, data.json, docs/) on GitHub Pages.
+# Runs on every push to main, by hand, and from update-stats.yml after a data commit
+# (pushes made with GITHUB_TOKEN do not trigger other workflows, hence workflow_call).
+name: Publier le site
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main # when called after a data commit, publish that commit, not the triggering one
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Tests
+        run: node --test "scripts/**/*.test.mjs" "worker/test/**/*.test.mjs"
+      - name: Vérifier data.json
+        run: node scripts/validate-data.mjs
+      - name: Assembler le site
+        run: |
+          mkdir -p _site
+          cp index.html data.json _site/
+          cp -r docs _site/docs
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

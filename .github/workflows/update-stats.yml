@@ -1,0 +1,62 @@
+# Weekly refresh of META and COUNTERS in data.json, then publish.
+# The source is chosen with the repository variable STATS_SOURCE (Settings > Secrets and
+# variables > Actions > Variables). While it is empty the run succeeds and changes nothing.
+name: Mettre à jour les stats
+
+on:
+  schedule:
+    - cron: "23 5 * * 1" # lundi 05:23 UTC : quelques jours de parties sur le patch du mercredi
+  workflow_dispatch:
+    inputs:
+      source:
+        description: "Source de stats (vide = variable STATS_SOURCE du dépôt)"
+        required: false
+        type: string
+      dry_run:
+        description: "Simulation : afficher le résultat sans commit"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: update-stats
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      changed: ${{ steps.update.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Récupérer les stats du patch
+        id: update
+        run: node scripts/update-stats.mjs ${{ inputs.dry_run && '--dry-run' || '' }}
+        env:
+          STATS_SOURCE: ${{ inputs.source || vars.STATS_SOURCE }}
+          STATS_API_KEY: ${{ secrets.STATS_API_KEY }}
+      - name: Commit de data.json
+        if: steps.update.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data.json
+          git commit -m "Stats patch $(jq -r .patch data.json) ($(jq -r .source data.json))"
+          git push
+
+  publish:
+    needs: update
+    if: needs.update.outputs.changed == 'true'
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/pages.yml
