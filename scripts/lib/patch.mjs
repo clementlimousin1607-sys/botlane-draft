@@ -12,3 +12,10 @@ export async function currentPatch(fetchImpl = fetch) {
   const versions = await res.json();
   return { patch: ddragonToPatch(versions[0]), ddragon: versions[0] };
 }
+
+// Inverse mapping, for match-v5 gameVersion ("16.19.823.722" = patch 26.19).
+export function patchToGameVersion(patch) {
+  const m = /^(\d+)\.(\d+)$/.exec(patch ?? "");
+  if (!m || Number(m[1]) < 25) throw new Error(`patch inattendu : ${patch}`);
+  return `${Number(m[1]) - 10}.${Number(m[2])}.`;
+}

@@ -83,7 +83,7 @@ const next = {
   ...prev,
   patch: stats.patch ?? patch,
   source: adapter.info?.name ?? prev.source,
-  scope: adapter.info?.scope ?? prev.scope,
+  scope: stats.scope ?? adapter.info?.scope ?? prev.scope,
   META: stats.META,
   COUNTERS: stats.COUNTERS,
 };

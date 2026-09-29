@@ -11,6 +11,8 @@ Quel ADC ou quel support prendre dans ta draft League of Legends : notes par mat
 python3 -m http.server 8000          # puis http://localhost:8000
 node --test "scripts/**/*.test.mjs"
 node scripts/validate-data.mjs
+./stats.sh --key                     # une fois : ta clé API Riot personnelle
+./stats.sh 60                        # stats de l'API Riot, cumulées d'un lancement à l'autre
 ```
 
 ## Publier

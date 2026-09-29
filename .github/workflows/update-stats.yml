@@ -28,6 +28,7 @@ concurrency:
 jobs:
   update:
     runs-on: ubuntu-latest
+    timeout-minutes: 340 # the Riot source collects for up to 5 h (STATS_MAX_MINUTES)
     permissions:
       contents: write
     outputs:

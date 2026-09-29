@@ -243,9 +243,27 @@ footer p{max-width:none}
           <div class="box"><b>Commit</b><span><code>data.json</code>, seulement si les stats ont changé</span></div><span class="arrow" aria-hidden="true">→</span>
           <div class="box"><b>Publication</b><span>Workflow « Publier le site »</span></div>
         </div>
-        <div class="note"><p><b>Aucune source n'est branchée pour l'instant.</b> Les grands sites de stats interdisent l'extraction automatique dans leurs conditions d'utilisation, donc le choix de la source reste à faire. Tant que la variable <code>STATS_SOURCE</code> est vide, l'Action tourne sans rien modifier.</p></div>
+        <h3>Source : l'API Riot (<code>scripts/sources/riot.mjs</code>)</h3>
+        <p>Les stats sont calculées par le projet lui-même, à partir des parties classées de l'API officielle de Riot (match-v5). L'Action prend des joueurs EUW d'Émeraude à Challenger, lit leurs parties classées solo du patch en cours et en tire, pour l'ADC et le support :</p>
+        <ul>
+          <li><b>Winrate</b> : victoires sur parties jouées dans le rôle.</li>
+          <li><b>Score de tier</b> : le rang du champion dans son rôle, ramené sur l'échelle 36 à 67. Le classement combine le winrate (ramené vers 50 % quand il y a peu de parties) et la présence (picks + bans) par rapport aux autres champions du rôle.</li>
+          <li><b>Counters</b> : les champions du même rôle qui gagnent plus de 52 % de leurs lanes contre lui, sur au moins 15 parties.</li>
+          <li>Les champions joués dans moins de 0,5 % des parties du rôle sont laissés de côté (« rarement joué »).</li>
+        </ul>
+        <p>Seuls des totaux sont gardés : aucun joueur n'est affiché ni enregistré. La collecte dure au plus 5 heures (limite d'un job GitHub : 6 h) et s'arrête à 30 000 parties. En dessous de 500 parties du patch, elle échoue plutôt que de publier du bruit.</p>
+        <h3>Sur ta machine (recommandé)</h3>
+        <p>Les parties s'additionnent d'un lancement à l'autre : les totaux du patch et les parties déjà lues sont gardés dans <code>.stats-cache/</code>, jamais publié (quelques Mo au plus). Chaque lancement ajoute donc de nouvelles parties, et un nouveau patch repart de zéro.</p>
+        <pre><code>./stats.sh --key     # une fois : enregistre la clé dans ~/.config/botlane-draft/riot-key
+./stats.sh 60        # collecte 60 min au plus (Ctrl+C garde ce qui est lu), met à jour data.json
+./deploy.sh          # publie</code></pre>
+        <h3>Sur GitHub (Action du lundi)</h3>
+        <p>Mise en place : une clé API Riot <b>personnelle</b> (developer.riotgames.com, « Register Product » puis « Personal API Key » ; la clé de développement expire toutes les 24 h), enregistrée comme secret, puis la variable de dépôt :</p>
+        <pre><code>gh secret set STATS_API_KEY      # colle la clé quand elle est demandée
+gh variable set STATS_SOURCE --body riot</code></pre>
+        <p>Réglages facultatifs (variables d'environnement du workflow) : <code>RIOT_PLATFORM</code> (euw1), <code>RIOT_REGION</code> (europe), <code>RIOT_TIERS</code>, <code>RIOT_RATE</code> (limites de la clé), <code>STATS_MAX_MINUTES</code>, <code>STATS_MAX_MATCHES</code>, <code>STATS_MIN_MATCHES</code>. Voir l'en-tête du module.</p>
 
-        <h3>Brancher une source</h3>
+        <h3>Brancher une autre source</h3>
         <ol>
           <li>Copie <code>scripts/sources/_template.mjs</code> en <code>scripts/sources/&lt;nom&gt;.mjs</code> et implémente <code>fetchStats</code>. Elle reçoit le patch et la liste des champions, et renvoie <code>META</code> et <code>COUNTERS</code> au format ci-dessus.</li>
           <li>Si la source demande une clé, enregistre-la comme secret <code>STATS_API_KEY</code> : Settings, puis Secrets and variables, puis Actions.</li>
