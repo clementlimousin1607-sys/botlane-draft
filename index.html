@@ -5,8 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Botlane Draft</title>
 <meta name="description" content="Quel ADC ou support prendre dans ta draft League of Legends : notes par matchup, synergies de duo et conseils de lane, mises à jour à chaque patch.">
-<!-- URL du relais Claude (Cloudflare Worker, voir docs/#claude). Vide = bouton d'analyse masqué. -->
-<meta name="ai-endpoint" content="">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%234F8BFF%22/%3E%3Cpath d=%22M9 7h8.5a5 5 0 0 1 2.9 9.1A5.5 5.5 0 0 1 18 26H9z%22 fill=%22%23fff%22/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -167,11 +165,6 @@ details.more .rows{margin-top:8px}
 .tip h3 img{width:20px;height:20px;border-radius:4px}
 .tip p{margin:0;font-size:14.5px}
 .tip.e{border-color:var(--red)} .tip.a{border-color:var(--blue)} .tip.k{border-color:var(--amber)}
-.ai{margin-top:12px;border-top:1px solid var(--line);padding-top:12px}
-.ai .out{font-size:14.5px;margin-top:10px}
-.ai .out ul{margin:6px 0;padding-left:18px}
-.ai .out p{margin:4px 0}
-.ai .note{font-size:12.5px;color:var(--muted);margin-top:6px}
 
 .patchbox summary{cursor:pointer;font:700 17px/1.2 var(--display);list-style:none}
 .patchbox summary::-webkit-details-marker{display:none}
@@ -751,77 +744,7 @@ function renderAdvice(top){
   let html=`<h2>Conseils</h2>`;
   if(!cards.length)html+=`<p style="margin:0;color:var(--muted)">Ajoute l'ADC et le support d'en face pour recevoir un plan de lane et des conseils de compo.</p>`;
   else html+=`<div class="adv">${cards.map(([c,h,p,id])=>`<div class="tip ${c}"><h3>${id?img(id):""}${esc(h)}</h3><p>${esc(p)}</p></div>`).join("")}</div>`;
-  html+=`<div class="ai" id="aiBox" ${AI.ok?"":"hidden"}><button class="btn" id="aiBtn">${AI.ctl?"Arrêter":AI_LABEL}</button><div class="out" id="aiOut"></div><div class="note">Analyse rédigée à la volée par Claude. Nombre de demandes limité par connexion et par jour.</div></div>`;
   $("#advCard").innerHTML=html;
-  // La draft a changé pendant une analyse : la réponse ne correspond plus, on l'arrête
-  const key=aiKey();
-  if(AI.ctl&&AI.runKey!==key)AI.ctl.abort("stale");
-  else if(AI.ctl)$("#aiOut").innerHTML=AI.text?mdLite(AI.text):AI_WAIT;
-  else if(AI.last&&AI.lastKey===key)$("#aiOut").innerHTML=AI.last;
-}
-
-// ---------- Claude (optionnel, via le relais Cloudflare Worker) ----------
-// Le navigateur n'envoie que la draft : le relais construit le prompt, garde la clé API
-// et limite le nombre de demandes par IP (voir worker/ et docs/#claude).
-const AI_ENDPOINT=((document.querySelector('meta[name="ai-endpoint"]')||{}).content||"").trim();
-const AI={ok:!!AI_ENDPOINT,ctl:null,runKey:"",text:"",last:"",lastKey:""};
-const AI_LABEL="Demander l'avis de Claude", AI_WAIT=`<p style="color:var(--muted)">Claude réfléchit…</p>`;
-function aiKey(){return JSON.stringify([S.role,S.draft,S.pools])}
-function mdLite(t){
-  const lines=esc(t).split("\n"); let out="",inList=false;
-  lines.forEach(l=>{
-    l=l.replace(/\*\*(.+?)\*\*/g,"<b>$1</b>");
-    if(/^\s*[-•*]\s+/.test(l)){if(!inList){out+="<ul>";inList=true}out+="<li>"+l.replace(/^\s*[-•*]\s+/,"")+"</li>"}
-    else{if(inList){out+="</ul>";inList=false}if(l.trim())out+="<p>"+l+"</p>"}
-  });
-  if(inList)out+="</ul>"; return out;
-}
-function aiPayload(){
-  const d=S.draft, role=S.role, names=ids=>ids.filter(Boolean).map(nm);
-  const side=t=>Object.fromEntries(LANES.map(([k])=>[k,d[t][k]?nm(d[t][k]):null]));
-  const scores=rank(role,S.pools[role].length?S.pools[role]:candidates(role)).slice(0,6).map(r=>[nm(r.id),r.score]);
-  return{role,pools:{adc:names(S.pools.adc),sup:names(S.pools.sup)},draft:{a:side("a"),e:side("e"),bans:names(d.bans)},scores};
-}
-function aiError(e){
-  if(e.code==="rate_limited"){const m=Math.max(1,Math.ceil((e.retryAfter||60)/60));return `Tu as atteint la limite de demandes : réessaie dans ${m>=60?Math.ceil(m/60)+" h":m+" min"}.`}
-  if(e.code==="daily_budget")return"L'appli a atteint son quota de demandes du jour : réessaie demain.";
-  if(e.code==="refusal")return"Claude n'a pas pu répondre à cette demande.";
-  return"L'analyse n'a pas pu aboutir. Les conseils ci-dessus restent valables.";
-}
-const aiFail=(code,extra)=>Object.assign(new Error(code),{code},extra);
-async function askClaude(){
-  if(!AI.ok)return;
-  if(AI.ctl){AI.ctl.abort("user");return}
-  const ctl=new AbortController(); AI.ctl=ctl; AI.runKey=aiKey(); AI.text="";
-  const show=h=>{const o=$("#aiOut");if(o)o.innerHTML=h};
-  const b0=$("#aiBtn"); if(b0)b0.textContent="Arrêter";
-  show(AI_WAIT);
-  try{
-    const res=await fetch(AI_ENDPOINT,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(aiPayload()),signal:ctl.signal});
-    if(!res.ok){const j=await res.json().catch(()=>({}));throw aiFail(j.error||"http_"+res.status,{retryAfter:j.retryAfter})}
-    // Réponse en NDJSON : {"t":"morceau de texte"} … puis {"done":true} ou {"error":"…"}
-    const reader=res.body.getReader(), dec=new TextDecoder(); let buf="", finished=false;
-    for(;;){
-      const {done,value}=await reader.read(); if(done)break;
-      buf+=dec.decode(value,{stream:true}); let i;
-      while((i=buf.indexOf("\n"))>=0){
-        const line=buf.slice(0,i).trim(); buf=buf.slice(i+1); if(!line)continue;
-        const m=JSON.parse(line);
-        if(m.t){AI.text+=m.t; show(mdLite(AI.text))}
-        else if(m.error)throw aiFail(m.error);
-        else if(m.done)finished=true;
-      }
-    }
-    if(!finished||!AI.text)throw aiFail("incomplete");
-    AI.last=mdLite(AI.text); AI.lastKey=AI.runKey;
-  }catch(e){
-    const why=ctl.signal.aborted?ctl.signal.reason:null;
-    if(why==="stale")show("");
-    else if(why==="user")show(AI.text?mdLite(AI.text):"");
-    else show((AI.text&&e.code!=="refusal"?mdLite(AI.text):"")+`<p style="color:var(--muted)">${esc(aiError(e))}</p>`); // texte d'une réponse refusée : on l'écarte
-  }finally{
-    AI.ctl=null; const b=$("#aiBtn"); if(b)b.textContent=AI_LABEL;
-  }
 }
 
 // ---------- Picker ----------
@@ -997,7 +920,6 @@ document.addEventListener("click",e=>{
     case"addBan":openPicker("bans");break;
     case"reset":S.draft=EMPTY();save();renderAll();toast("Nouvelle draft");break;
     case"theme":cycleTheme();break;
-    case"aiBtn":askClaude();break;
   }
 });
 document.querySelectorAll(".ov").forEach(o=>o.addEventListener("click",e=>{if(e.target===o)closeOv()}));

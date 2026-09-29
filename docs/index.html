@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Botlane Draft — documentation</title>
-<meta name="description" content="Comment utiliser Botlane Draft, comment les notes sont calculées, et comment les données, la mise à jour hebdo et l'analyse Claude fonctionnent.">
+<meta name="description" content="Comment utiliser Botlane Draft, comment les notes sont calculées et comment les données et la mise à jour hebdo fonctionnent.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%234F8BFF%22/%3E%3Cpath d=%22M9 7h8.5a5 5 0 0 1 2.9 9.1A5.5 5.5 0 0 1 18 26H9z%22 fill=%22%23fff%22/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -135,7 +135,6 @@ footer p{max-width:none}
         <li><a href="#note">Calcul des notes</a></li>
         <li><a href="#donnees">Les données</a></li>
         <li><a href="#maj">Mise à jour hebdo</a></li>
-        <li><a href="#claude">Analyse Claude</a></li>
         <li><a href="#dev">Développer, publier</a></li>
         <li><a href="#mentions">Mentions</a></li>
       </ol>
@@ -258,58 +257,15 @@ gh run watch</code></pre>
         <div class="note info"><p>GitHub désactive les tâches planifiées d'un dépôt public après 60 jours sans activité. Si ça arrive, réactive-la dans l'onglet Actions.</p></div>
       </section>
 
-      <section class="card" id="claude">
-        <h2>Analyse par Claude <span class="for dev">Maintenance</span></h2>
-        <p class="lead">Le bouton « Demander l'avis de Claude » passe par un petit relais sur Cloudflare Workers. Il garde la clé API Anthropic secrète et limite le nombre de demandes, pour que le bouton marche sans compte Claude.</p>
-        <div class="flow" role="img" aria-label="Navigateur, relais Cloudflare Worker, API Anthropic">
-          <div class="box"><b>Navigateur</b><span>Envoie seulement les noms des champions de la draft et les notes de l'appli</span></div><span class="arrow" aria-hidden="true">→</span>
-          <div class="box hl"><b>Relais (Worker)</b><span>Vérifie l'origine et les noms, compte les quotas, écrit le prompt avec la méta de <code>data.json</code></span></div><span class="arrow" aria-hidden="true">→</span>
-          <div class="box"><b>API Anthropic</b><span>Réponse en streaming, renvoyée au fur et à mesure</span></div>
-        </div>
-        <p>Le relais écrit le prompt lui-même et n'accepte que de vrais noms de champions : il ne sert qu'à analyser une draft. Si le modèle décline la demande, l'API la relance d'elle-même sur son modèle de repli recommandé.</p>
-
-        <h3>Déployer le relais</h3>
-        <p>Il faut un compte Cloudflare (l'offre gratuite suffit) et une clé API sur <a href="https://console.anthropic.com/">console.anthropic.com</a>. Le script déploie le Worker, enregistre la clé comme secret et renseigne son adresse dans <code>index.html</code> :</p>
-        <pre><code>worker/setup.sh      # connexion Cloudflare dans le navigateur, puis colle ta clé API
-./deploy.sh          # publie index.html avec l'adresse du relais</code></pre>
-        <p>À la main, cela revient à remplacer <code>GITHUB_LOGIN</code> dans <code>worker/wrangler.toml</code>, lancer <code>npx wrangler deploy</code> puis <code>npx wrangler secret put ANTHROPIC_API_KEY</code>. Il reste à mettre l'URL du Worker dans la balise <code>&lt;meta name="ai-endpoint"&gt;</code> d'<code>index.html</code>. Balise vide : le bouton est masqué.</p>
-
-        <h3>Réglages (worker/wrangler.toml)</h3>
-        <div class="tbl"><table>
-          <thead><tr><th>Variable</th><th>Défaut</th><th>Effet</th></tr></thead>
-          <tbody>
-            <tr><td><code>ALLOWED_ORIGINS</code></td><td>ta page GitHub</td><td>Sites autorisés à appeler le relais, séparés par des virgules.</td></tr>
-            <tr><td><code>DATA_URL</code></td><td>data.json publié</td><td>Source du patch, des meilleurs picks et des patch notes injectés dans le prompt.</td></tr>
-            <tr><td><code>MODEL</code></td><td class="n">claude-opus-5</td><td>Modèle utilisé.</td></tr>
-            <tr><td><code>EFFORT</code></td><td class="n">low</td><td>Profondeur de réflexion : réponse courte et rapide. À vider pour un modèle qui ne l'accepte pas, comme <code>claude-haiku-4-5</code>.</td></tr>
-            <tr><td><code>FALLBACKS</code></td><td class="n">default</td><td>Relance automatique sur un modèle de repli si le modèle décline. À vider avec Haiku.</td></tr>
-            <tr><td><code>MAX_TOKENS</code></td><td class="n">4096</td><td>Plafond de sortie par demande, réflexion comprise.</td></tr>
-            <tr><td><code>PER_IP_PER_MINUTE</code></td><td class="n">3</td><td>Demandes par minute et par connexion (IPv6 : par bloc /64).</td></tr>
-            <tr><td><code>PER_IP_PER_DAY</code></td><td class="n">20</td><td>Demandes par jour (UTC) et par connexion.</td></tr>
-            <tr><td><code>GLOBAL_PER_DAY</code></td><td class="n">100</td><td>Plafond total par jour, qui borne la facture.</td></tr>
-          </tbody>
-        </table></div>
-        <div class="note"><p><b>Coût.</b> Une analyse coûte de l'ordre de 2 centimes de dollar avec les réglages par défaut (estimation : environ 500 tokens en entrée, moins de 1 000 en sortie). Le plafond de 100 demandes par jour borne donc la facture autour de 2 $ par jour. Fixe aussi une limite de dépense mensuelle dans la console Anthropic.</p></div>
-
-        <h3>Données personnelles</h3>
-        <p>Le relais reçoit les noms des champions de ta draft et de vos pools, et les notes calculées par l'appli, rien d'autre. Ton adresse IP sert uniquement à compter tes demandes ; le compteur est effacé après 2 jours sans demande. La demande transite par Cloudflare et Anthropic.</p>
-      </section>
-
       <section class="card" id="dev">
         <h2>Développer et publier <span class="for dev">Maintenance</span></h2>
         <h3>Lancer en local</h3>
         <p>Ouverte directement depuis le disque (<code>file://</code>), la page ne peut pas lire <code>data.json</code>. Lance un petit serveur dans le dossier :</p>
         <pre><code>python3 -m http.server 8000        # puis http://localhost:8000</code></pre>
         <h3>Tests</h3>
-        <pre><code>node --test "scripts/**/*.test.mjs" "worker/test/**/*.test.mjs"
+        <pre><code>node --test "scripts/**/*.test.mjs"
 node scripts/validate-data.mjs</code></pre>
-        <p>Ils tournent aussi avant chaque publication. Les tests couvrent la validation de <code>data.json</code>, la mise à jour des stats (source absente, stats identiques, résultat tronqué, champion inconnu) et le relais (validation, prompt, quotas, CORS).</p>
-        <h3>Relais en local</h3>
-        <p>Crée <code>worker/.dev.vars</code>, qui n'est jamais commité :</p>
-        <pre><code>ANTHROPIC_API_KEY=sk-ant-...
-ALLOWED_ORIGINS=http://localhost:8000
-DATA_URL=http://localhost:8000/data.json</code></pre>
-        <p>Lance ensuite <code>cd worker &amp;&amp; npm install &amp;&amp; npx wrangler dev</code>. Mets <code>http://localhost:8787/</code> dans la balise <code>ai-endpoint</code>, sans committer ce changement.</p>
+        <p>Ils tournent aussi avant chaque publication. Les tests couvrent la validation de <code>data.json</code>, la mise à jour des stats (source absente, stats identiques, résultat tronqué, champion inconnu).</p>
         <h3>Publier</h3>
         <p><code>./deploy.sh</code> crée le dépôt public <code>botlane-draft</code> au premier lancement, active GitHub Pages en mode « GitHub Actions » et pousse. Ensuite, il committe et pousse les changements. Le workflow « Publier le site » teste, vérifie <code>data.json</code> puis publie <code>index.html</code>, <code>data.json</code> et <code>docs/</code>.</p>
         <div class="tbl"><table>
@@ -319,7 +275,6 @@ DATA_URL=http://localhost:8000/data.json</code></pre>
             <tr><td><code>data.json</code></td><td>Données du patch.</td></tr>
             <tr><td><code>docs/</code></td><td>Cette page.</td></tr>
             <tr><td><code>scripts/</code></td><td>Validation, mise à jour des stats, modèle de source, tests.</td></tr>
-            <tr><td><code>worker/</code></td><td>Relais Claude (Cloudflare Worker) et ses tests.</td></tr>
             <tr><td><code>.github/workflows/</code></td><td><code>pages.yml</code> (publication), <code>update-stats.yml</code> (stats hebdo).</td></tr>
           </tbody>
         </table></div>
@@ -327,7 +282,7 @@ DATA_URL=http://localhost:8000/data.json</code></pre>
 
       <section class="card" id="mentions">
         <h2>Mentions</h2>
-        <p>Stats : voir la source et la date en bas de l'appli. Patch notes : notes officielles de Riot Games. Icônes et liste des champions : Data Dragon de Riot Games. Analyse : Claude, par Anthropic.</p>
+        <p>Stats : voir la source et la date en bas de l'appli. Patch notes : notes officielles de Riot Games. Icônes et liste des champions : Data Dragon de Riot Games.</p>
         <p>Botlane Draft n'est pas approuvé par Riot Games et ne reflète pas les opinions de Riot Games ni de quiconque officiellement impliqué dans la production ou la gestion des propriétés de Riot Games. Riot Games et toutes les propriétés associées sont des marques commerciales ou déposées de Riot Games, Inc.</p>
         <p lang="en" style="color:var(--muted)">Botlane Draft isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games or anyone officially involved in producing or managing Riot Games properties. Riot Games, and all associated properties are trademarks or registered trademarks of Riot Games, Inc.</p>
       </section>

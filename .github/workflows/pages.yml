@@ -25,7 +25,7 @@ jobs:
         with:
           node-version: 24
       - name: Tests
-        run: node --test "scripts/**/*.test.mjs" "worker/test/**/*.test.mjs"
+        run: node --test "scripts/**/*.test.mjs"
       - name: Vérifier data.json
         run: node scripts/validate-data.mjs
       - name: Assembler le site
