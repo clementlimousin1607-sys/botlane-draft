@@ -9,6 +9,7 @@
 //   RIOT_PLATFORM      euw1          server whose ranked ladder is sampled
 //   RIOT_REGION        europe        match-v5 routing value of that server
 //   RIOT_TIERS         EMERALD,DIAMOND,MASTER,GRANDMASTER,CHALLENGER
+//   RIOT_PAGES         3             ladder pages read per tier/division (about 205 players each)
 //   RIOT_RATE          20:1,100:120  app rate limits of the key ("count:seconds", comma separated)
 //   STATS_MAX_MINUTES  300           collection time budget of this run (a GitHub job stops at 6 h)
 //   STATS_MAX_MATCHES  30000         stop this run once it has added this many games
@@ -50,14 +51,16 @@ export async function fetchStats({ patch, champions, env, log = console.log, fet
   const done = () => stopped || now() > deadline || tally.matches - startMatches >= maxMatches;
 
   try {
-    // Players: page 1 of each tier/division, shuffled so a short run still mixes the ranks.
-    const buckets = shuffle(tiers.flatMap(t => DIVISIONS[t].map(d => [t, d])));
+    // Players: the first pages of each tier/division, shuffled so a short run still mixes the ranks.
+    const pages = Math.max(1, Number(env.RIOT_PAGES || 3));
+    const buckets = shuffle(tiers.flatMap(t => DIVISIONS[t].flatMap(d => Array.from({ length: pages }, (_, i) => [t, d, i + 1]))));
     const players = [];
-    for (const [t, d] of buckets) {
+    for (const [t, d, page] of buckets) {
       if (done()) break;
-      const entries = await api.get(`https://${platform}.api.riotgames.com/lol/league-exp/v4/entries/RANKED_SOLO_5x5/${t}/${d}?page=1`);
+      const entries = await api.get(`https://${platform}.api.riotgames.com/lol/league-exp/v4/entries/RANKED_SOLO_5x5/${t}/${d}?page=${page}`);
       for (const e of entries ?? []) if (e.puuid) players.push(e.puuid);
     }
+    players.splice(0, players.length, ...new Set(players)); // a player seen on two pages counts once
     shuffle(players);
     log(`${players.length} joueurs classés trouvés (${tiers.map(t => TIER_FR[t]).join(", ")}), patch ${patch}` +
       (startMatches ? `, ${startMatches} parties déjà cumulées` : ""));
