@@ -91,6 +91,8 @@ for (const r of ["adc", "sup"]) {
   const before = Object.keys(prev.META?.[r] ?? {}).length, after = Object.keys(next.META?.[r] ?? {}).length;
   if (before && after < before * MIN_COVERAGE) fail(`META.${r} ne contient plus que ${after} champions contre ${before} : résultat suspect, rien n'est écrit.`);
 }
+// Fresh stats from the source replace the hand-estimated rows
+if (stats.ESTIMATED) next.ESTIMATED = stats.ESTIMATED; else delete next.ESTIMATED;
 const { errors, warnings } = validateData(next, champions);
 warnings.forEach(w => console.log(`::warning::${w}`));
 if (errors.length) fail(`data.json produit invalide :\n${errors.map(e => "- " + e).join("\n")}`);

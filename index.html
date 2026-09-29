@@ -278,7 +278,7 @@ code{font-size:.92em;background:var(--panel2);border:1px solid var(--line);borde
   </div>
 
   <footer>
-    <p>Stats : <span id="dsrc">…</span>, patch <span class="dpatch">…</span> <span id="dscope"></span> (relevé du <span id="ddate">…</span>) · patch notes officielles Riot · icônes Data Dragon 16.19.1.</p>
+    <p>Stats : <span id="dsrc">…</span>, patch <span class="dpatch">…</span> <span id="dscope"></span> (relevé du <span id="ddate">…</span>)<span id="dest"></span> · patch notes officielles Riot · icônes Data Dragon 16.19.1.</p>
     <p>Les notes combinent force méta, matchups, synergies et compo : c'est un guide, pas une vérité absolue. Tes champions et ta draft restent enregistrés sur cet appareil. <a href="docs/">Comment sont calculées les notes</a></p>
     <p lang="en">Botlane Draft isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games or anyone officially involved in producing or managing Riot Games properties. Riot Games, and all associated properties are trademarks or registered trademarks of Riot Games, Inc.</p>
   </footer>
@@ -337,7 +337,7 @@ const AD_OVERRIDE = "Smolder Corki Kaisa Varus Jayce".split(" ");
 (function(){
 "use strict";
 // ---------- Données du patch (remplies depuis data.json au démarrage) ----------
-let DATA={}, PATCH="", META, COUNTERS, ADC, SUP, DUOS, TIPS, PATCH_NOTES;
+let DATA={}, PATCH="", META, COUNTERS, ESTIMATED, ADC, SUP, DUOS, TIPS, PATCH_NOTES;
 // ---------- Helpers ----------
 const $ = (s,r=document)=>r.querySelector(s);
 const esc = s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -390,11 +390,18 @@ function dmgType(id){
 const isTank = id=>TANKY.includes(id)||(BY[id]&&BY[id].tags[0]==="Tank");
 function adcProf(id){return ADC[id]||null}
 function supProf(id){return SUP[id]||null}
+// Valeurs estimées (non relevées sur la source) : le tier compte, le winrate est ignoré
+const isEstimated=(role,id)=>(ESTIMATED[role]||[]).includes(id);
 function metaPts(role,id){
   const m=META[role][id]; if(!m)return{v:-3,t:null};
+  const est=isEstimated(role,id);
   const tier=Math.max(0,Math.min(1,(m[0]-38)/29));
-  const v=Math.round(tier*14-4+(m[1]-50)*1.2);
-  return{v,t:m};
+  const v=Math.round(tier*14-4+(est?0:(m[1]-50)*1.2));
+  return{v,t:m,est};
+}
+function metaText(role,id,mp){
+  return mp.est?`Tier ${tierLabel(role,id)} estimé au patch ${PATCH} (winrate non relevé)`
+    :`Tier ${tierLabel(role,id)} au patch ${PATCH} (${mp.t[1].toFixed(1)} % de victoires)`;
 }
 function tierLabel(role,id){const m=META[role][id];if(!m)return"hors méta";const s=m[0];return s>=64?"S+":s>=58.5?"S":s>=50?"A":s>=41.5?"B":s>=36?"C":"D"}
 
@@ -410,7 +417,7 @@ function hasPair(list,a,b){return list.includes(a+"|"+b)}
 function scoreADC(id,C){
   const R=[], me=adcProf(id)||{r:2,e:3,s:3,m:2,k:"util"};
   const mp=metaPts("adc",id);
-  if(mp.t)add(R,mp.v,`Tier ${tierLabel("adc",id)} au patch ${PATCH} (${mp.t[1].toFixed(1)} % de victoires)`,1);
+  if(mp.t)add(R,mp.v,metaText("adc",id,mp),1);
   else add(R,mp.v,"Rarement joué ADC en ce moment",1);
   // vs ADC adverse
   const E=C.eAdc, ep=E&&adcProf(E);
@@ -469,7 +476,7 @@ function scoreADC(id,C){
 function scoreSUP(id,C){
   const R=[], me=supProf(id)||{a:"mage",lane:3,peel:2,eng:2};
   const mp=metaPts("sup",id);
-  if(mp.t)add(R,mp.v,`Tier ${tierLabel("sup",id)} au patch ${PATCH} (${mp.t[1].toFixed(1)} % de victoires)`,1);
+  if(mp.t)add(R,mp.v,metaText("sup",id,mp),1);
   else add(R,mp.v,"Rarement joué support en ce moment",1);
   // vs support adverse
   const Es=C.eSup, sp=Es&&supProf(Es);
@@ -948,7 +955,7 @@ async function loadData(){
   return d;
 }
 function applyData(d){
-  DATA=d; PATCH=d.patch; META=d.META; COUNTERS=d.COUNTERS; ADC=d.ADC; SUP=d.SUP; DUOS=d.DUOS; TIPS=d.TIPS; PATCH_NOTES=d.PATCH_NOTES;
+  DATA=d; PATCH=d.patch; META=d.META; COUNTERS=d.COUNTERS; ESTIMATED=d.ESTIMATED||{}; ADC=d.ADC; SUP=d.SUP; DUOS=d.DUOS; TIPS=d.TIPS; PATCH_NOTES=d.PATCH_NOTES;
   document.title=`Botlane Draft — patch ${PATCH}`;
   $("#patchTag").textContent=`Patch ${PATCH}`;
   document.querySelectorAll(".dpatch").forEach(el=>el.textContent=PATCH);
@@ -956,6 +963,8 @@ function applyData(d){
   $("#patchSum").textContent=np===PATCH?`Ce qui change pour la bot au patch ${PATCH}`:`Ce qui a changé pour la bot au patch ${np}`;
   $("#patchList").innerHTML=PATCH_NOTES.map(([n,k,t])=>`<li><span class="tag ${k==="buff"?"buff":k==="nerf"?"nerf":""}">${esc(k)}</span><b>${esc(n)}</b> — ${esc(t)}</li>`).join("");
   $("#dsrc").textContent=d.source||"?"; $("#dscope").textContent=d.scope||""; $("#ddate").textContent=frDate(d.updated);
+  const nEst=Object.values(ESTIMATED).reduce((n,l)=>n+l.length,0);
+  $("#dest").textContent=nEst?` · ${nEst} valeurs estimées, signalées dans les explications`:"";
 }
 function showLoadError(err){
   const local=location.protocol==="file:";

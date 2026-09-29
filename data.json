@@ -129,6 +129,45 @@
       "Braum": ["Brand", "Swain", "Morgana"]
     }
   },
+  "ESTIMATED": {
+    "adc": [
+      "Varus",
+      "Kalista",
+      "Veigar",
+      "Ziggs",
+      "Viktor",
+      "KogMaw",
+      "Mel",
+      "Nilah",
+      "Corki",
+      "Swain"
+    ],
+    "sup": [
+      "TahmKench",
+      "Xerath",
+      "Alistar",
+      "Rell",
+      "Zyra",
+      "Velkoz",
+      "Rakan",
+      "Bard",
+      "Neeko",
+      "Sona",
+      "Zilean",
+      "Mel",
+      "Maokai",
+      "Poppy",
+      "Taric",
+      "Renata",
+      "Shen",
+      "Galio",
+      "Malphite",
+      "Hwei",
+      "Zoe",
+      "Veigar",
+      "Amumu"
+    ]
+  },
   "ADC": {
     "Caitlyn": {"r": 3, "e": 5, "s": 4, "m": 2, "k": "bully", "proj": 1},
     "Jinx": {"r": 2, "e": 2, "s": 5, "m": 1, "k": "hyper"},
@@ -166,7 +205,7 @@
     "Thresh": {"a": "hook", "lane": 4, "peel": 4, "eng": 4, "proj": 1},
     "Seraphine": {"a": "mage", "lane": 4, "peel": 3, "eng": 3, "heal": 1, "proj": 1},
     "Nautilus": {"a": "engage", "lane": 4, "peel": 3, "eng": 5, "proj": 1},
-    "Leona": {"a": "engage", "lane": 4, "peel": 3, "eng": 5},
+    "Leona": {"a": "engage", "lane": 4, "peel": 3, "eng": 5, "proj": 1},
     "Morgana": {"a": "mage", "lane": 3, "peel": 4, "eng": 3, "proj": 1},
     "Blitzcrank": {"a": "hook", "lane": 4, "peel": 2, "eng": 4, "proj": 1},
     "Lulu": {"a": "enchant", "lane": 3, "peel": 5, "eng": 1},
@@ -284,12 +323,12 @@
     "Yunara": "Hypercarry on-hit : force les trades avant ses items, elle n'aime pas perdre la lane.",
     "Ezreal": "Cache-toi derrière les sbires contre ses Q. Engage quand son E est utilisé.",
     "Ashe": "Son ult peut arriver de très loin : gardez la vision. Aucune mobilité, engagez-la.",
-    "Aphelios": "Regarde son arme active et évite les trades contre Infernum/Crescendum. Aucun dash (buffé ce patch).",
+    "Aphelios": "Regarde son arme active et évite les trades contre Infernum/Crescendum. Aucun dash : engagez-le.",
     "Twitch": "Il roam invisible : ward tes buissons, ping ses disparitions. Faible en 1v1 tôt.",
-    "Lucian": "Très fort niveau 1-6 : ne trade pas quand son passif est prêt. Il faiblit ensuite (passif nerfé ce patch).",
+    "Lucian": "Très fort niveau 1-6 : ne trade pas quand son passif est prêt. Il faiblit ensuite.",
     "Samira": "Garde un CC pour interrompre son ult. Son W bloque les projectiles : ne lance rien dedans.",
     "Xayah": "Ne reste pas sur la ligne de ses plumes. Attends son ult avant d'engager.",
-    "Draven": "Force-le à bouger pour qu'il rate ses haches. Refuse les trades tôt (buffé ce patch).",
+    "Draven": "Force-le à bouger pour qu'il rate ses haches. Refuse les trades tôt, il est très fort niveau 1-3.",
     "Smolder": "Faible avant ses stacks : bouscule-le dès le niveau 1 et refuse-lui les sbires.",
     "Vayne": "Éloigne-toi des murs (son E stun). Punis-la avant ses items.",
     "Sivir": "Son bouclier bloque ton meilleur sort : feinte-le avant d'engager.",
@@ -336,13 +375,21 @@
     "Sona": "Très fragile early : engagez-la dès le niveau 2.",
     "Poppy": "Son W bloque les dashs : n'engage pas en dash quand elle est proche.",
     "Neeko": "Méfie-toi de ses déguisements et de son ult en buisson.",
-    "Renata": "Son ult retourne les alliés : restez espacés en combat."
+    "Renata": "Son ult retourne les alliés : restez espacés en combat.",
+    "Maokai": "Ses pousses révèlent et ralentissent : ne traverse pas les buissons à l'aveugle. Son W le colle à toi, garde un dash pour après.",
+    "Taric": "Tout passe par son E (stun) : sors de la ligne entre lui et son allié. Son ult rend son équipe invulnérable après un délai : recule dès qu'il l'active.",
+    "Shen": "Il rejoint les autres lanes avec son ult : ping-le dès qu'il la lance. En lane, esquive son E (provocation) et trade quand son W est tombé.",
+    "Galio": "Il vient de loin avec son ult : gardez de la vision. Son W réduit les dégâts magiques et provoque : ne l'engage pas au contact.",
+    "Malphite": "Son ult engage de très loin : restez espacés. En lane il est faible, punis-le avant le niveau 6.",
+    "Hwei": "Énorme poke et zones de contrôle : reste hors de ses cercles et engage-le, il n'a aucune mobilité.",
+    "Zoe": "Esquive sa bulle (E) derrière les sbires : si elle touche, ne te fais pas avoir par le Q qui suit. Très fragile au contact.",
+    "Amumu": "Tout repose sur son Q (bandage) : garde tes sbires entre vous et engage quand il l'a raté."
   },
   "PATCH_NOTES": [
-    ["Aphelios", "buff", "Dégâts et utilité de plusieurs armes augmentés : meilleur dans la méta enchanteur."],
-    ["Draven", "buff", "+2 AD de base : early encore plus violent."],
+    ["Aphelios", "buff", "Plusieurs armes renforcées (dégâts de Calibrum, soins de Severum, cooldown d'Infernum) : meilleur dans la méta enchanteur."],
+    ["Draven", "buff", "+2 AD de base (62 → 64) : early encore plus violent."],
     ["Lucian", "mixte", "Passif réduit mais Q renforcé : un peu moins fort bot, plus fort mid."],
-    ["Supports mêlée", "changement", "Les objets de support donnent de la régénération plutôt que des PV : meilleurs en lane longue, moins en all-in pur."],
-    ["Morgana", "nerf", "Coûts et cooldowns haussés (surtout ressenti au mid)."]
+    ["Supports mêlée", "changement", "L'objet de support (World Atlas / Runic Compass) donne de la régénération plutôt que des PV : meilleur en lane longue, moins en all-in pur."],
+    ["Morgana", "nerf", "Bouclier noir moins solide aux derniers rangs, ult plus longue à revenir, W plus cher et plus long : nerf ressenti aussi au support."]
   ]
 }

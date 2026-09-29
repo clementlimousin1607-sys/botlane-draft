@@ -55,6 +55,16 @@ export function validateData(data, champions) {
     }
   }
 
+  // ESTIMATED (optional): { adc: [ids], sup: [ids] } = META rows not read on the source
+  if (data.ESTIMATED !== undefined) {
+    if (!isObj(data.ESTIMATED)) err("ESTIMATED doit être un objet {adc: [...], sup: [...]}");
+    else for (const [r, list] of Object.entries(data.ESTIMATED)) {
+      if (!ROLES.includes(r)) { err(`ESTIMATED.${r} : rôle inconnu`); continue; }
+      if (!Array.isArray(list)) { err(`ESTIMATED.${r} : attendu une liste de champions`); continue; }
+      for (const id of list) if (!isObj(data.META?.[r]) || !data.META[r][id]) err(`ESTIMATED.${r}.${id} : absent de META.${r}`);
+    }
+  }
+
   // Curated profiles
   if (!isObj(data.ADC)) err("ADC manquant");
   else for (const [id, p] of Object.entries(data.ADC)) {

@@ -32,8 +32,9 @@ test("validator catches unknown ids, bad ranges and self-counters", () => {
   bad.COUNTERS.adc.Jinx = ["Jinx"];
   bad.ADC.Jinx.k = "tank";
   bad.patch = "26";
+  bad.ESTIMATED = { adc: ["Lux"], mid: [] };
   const { errors } = validateData(bad, champions);
-  for (const needle of ['champion inconnu "Jynx"', "META.sup.Lux", "se contrer lui-même", "ADC.Jinx", "patch invalide"])
+  for (const needle of ['champion inconnu "Jynx"', "META.sup.Lux", "se contrer lui-même", "ADC.Jinx", "patch invalide", "ESTIMATED.adc.Lux", "ESTIMATED.mid"])
     assert.ok(errors.some(e => e.includes(needle)), `missing error about ${needle}: ${errors.join(" | ")}`);
 });
 
@@ -75,6 +76,8 @@ test("update with new stats rewrites META/COUNTERS and keeps curated data", () =
   assert.equal(r.data.META.adc.Caitlyn[0], 67.88);
   assert.deepEqual(r.data.COUNTERS.adc.Caitlyn, ["Jhin", "Jinx", "Twitch"]);
   assert.deepEqual(r.data.TIPS, data.TIPS);
+  assert.ok(data.ESTIMATED, "fixture data.json marks some rows as estimated");
+  assert.equal(r.data.ESTIMATED, undefined, "fresh stats drop the estimated marks");
   assert.equal(r.raw, formatData(r.data));
   assert.match(r.sum, /patch notes affichées datent du patch 26\.19/);
 });

@@ -6,6 +6,7 @@
 //   score  : METAsrc-style tier score, about 36 (tier C) to 67 (tier S+). A source that exposes
 //            another scale must be converted here, or the tiers and the scores shift.
 //   winrate: percentage, e.g. 50.8
+// ESTIMATED (optional): { adc: [ids], sup: [ids] } for rows the source only estimates; omitted = none.
 // COUNTERS[role][id] lists the same-role champions that beat `id` most often, best first (max 3 is typical).
 
 export const info = { name: "Nom de la source", scope: "toutes élos" };

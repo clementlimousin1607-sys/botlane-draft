@@ -168,7 +168,7 @@ footer p{max-width:none}
         <div class="tbl"><table>
           <thead><tr><th>Critère</th><th>Points</th><th>Ce qui compte</th></tr></thead>
           <tbody>
-            <tr><td>Force méta</td><td class="n">−4 à +10</td><td>Le score de tier du patch, plus 1,2 point par point de winrate au-dessus de 50 % (en moins en dessous). Un champion rarement joué dans le rôle prend −3.</td></tr>
+            <tr><td>Force méta</td><td class="n">−4 à +10</td><td>Le score de tier du patch, plus 1,2 point par point de winrate au-dessus de 50 % (en moins en dessous). Pour une valeur estimée (<code>ESTIMATED</code>), seul le tier compte. Un champion rarement joué dans le rôle prend −3.</td></tr>
             <tr><td>Stats de matchup</td><td class="n"><span class="pos">+7</span> / <span class="neg">−7</span></td><td>Tu fais partie des champions qui battent le plus souvent ton adversaire direct, ou l'inverse.</td></tr>
             <tr><td>Matchups connus</td><td class="n"><span class="pos">+5</span> / <span class="neg">−5</span></td><td>Des cas classiques, par exemple le Bouclier noir de Morgana contre un hook.</td></tr>
             <tr><td>Face à face en lane</td><td class="n">−5 à +4</td><td>Portée, force en début de partie contre scaling, mobilité face à un engage, murs qui bloquent les projectiles. Pour un support : l'archétype contre celui d'en face et la pression de lane.</td></tr>
@@ -199,6 +199,7 @@ footer p{max-width:none}
             <tr><td><code>notesPatch</code></td><td><code>"26.19"</code></td><td>Patch des notes de <code>PATCH_NOTES</code>. S'il diffère de <code>patch</code>, l'appli écrit « Ce qui a changé au patch … ».</td></tr>
             <tr><td><code>META</code></td><td><code>{adc: {Id: [score, winrate]}, sup: {…}}</code></td><td>Score de tier (échelle METAsrc, environ 36 à 67) et winrate en %.</td></tr>
             <tr><td><code>COUNTERS</code></td><td><code>{adc: {Id: [Id, …]}, sup: {…}}</code></td><td>Pour chaque champion, ceux du même rôle qui le battent le plus souvent.</td></tr>
+            <tr><td><code>ESTIMATED</code></td><td><code>{adc: [Id, …], sup: […]}</code></td><td>Facultatif. Lignes de <code>META</code> estimées plutôt que relevées sur la source : l'appli garde leur tier mais ignore leur winrate, et le signale dans les explications. La prochaine mise à jour par une source efface la liste.</td></tr>
             <tr><td><code>ADC</code></td><td><code>{Id: {r, e, s, m, k, …}}</code></td><td>Profil de chaque ADC proposée (voir ci-dessous).</td></tr>
             <tr><td><code>SUP</code></td><td><code>{Id: {a, lane, peel, eng, …}}</code></td><td>Profil de chaque support proposé.</td></tr>
             <tr><td><code>DUOS</code></td><td><code>["Caitlyn|Lux", …]</code></td><td>Duos éprouvés, format <code>ADC|Support</code>.</td></tr>
