@@ -154,3 +154,24 @@ test("games add up across runs through the local cache, and a new patch starts o
   await assert.rejects(run("26.20"), /pas assez/, "26.20 games are not in the 26.19 lists of this fake");
   assert.deepEqual(readdirSync(dir).sort(), ["riot-26.20-euw1-master.json"], "older patches are cleaned up");
 });
+
+test("the lane of the player a game was found through is left out", () => {
+  const t = newTally();
+  const g = game(true);
+  g.participants[1].puuid = "seed"; // blue ADC (Jinx) is the seed
+  addMatch(t, g, idOf, p => p === "seed");
+  assert.equal(t.matches, 1);
+  assert.equal(t.adc.games.Jinx, undefined, "the seed's champion is not counted");
+  assert.equal(t.adc.games.Caitlyn, undefined, "nor its lane opponent");
+  assert.deepEqual([t.sup.games.Lux, t.sup.games.Thresh], [1, 1], "the other lane still counts");
+});
+
+test("only champions with a profile get a tier score, others still count as opponents", () => {
+  const t = newTally();
+  for (let i = 0; i < 60; i++) addMatch(t, game(i < 40), idOf);
+  const s = computeStats(t, { ranked: { adc: new Set(["Caitlyn"]), sup: new Set(["Lux", "Thresh"]) } });
+  assert.deepEqual(Object.keys(s.META.adc), ["Caitlyn"]);
+  assert.equal(s.META.adc.Caitlyn[0], 67, "alone in its role: top of the scale");
+  assert.deepEqual(s.COUNTERS.adc.Caitlyn, ["Jinx"], "Jinx has no profile but beats Caitlyn");
+  assert.deepEqual(s.COUNTERS.adc.Jinx, [], "an unranked enemy still has its counters list");
+});

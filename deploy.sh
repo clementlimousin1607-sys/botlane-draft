@@ -42,6 +42,20 @@ else
 fi
 
 echo
-echo "Publication en cours (1 à 2 minutes) : gh run watch \$(gh run list --workflow pages.yml -L 1 --json databaseId -q '.[0].databaseId')"
-echo "Site          : ${URL}"
-echo "Documentation : ${URL}docs/"
+# Attend la publication : les tests tournent avant, et un échec laisse l'ancien site en ligne.
+SHA=$(git rev-parse HEAD); RUN=""
+echo "Publication en cours (1 à 2 minutes)…"
+for _ in $(seq 1 30); do
+  RUN=$(gh run list --workflow pages.yml --commit "$SHA" -L 1 --json databaseId -q '.[0].databaseId' 2>/dev/null)
+  [ -n "$RUN" ] && break; sleep 4
+done
+if [ -z "$RUN" ]; then
+  echo "Publication introuvable pour ce commit : vérifie l'onglet Actions sur GitHub."
+elif gh run watch "$RUN" --exit-status >/dev/null 2>&1; then
+  echo "✅ Site publié : ${URL}"
+  echo "Documentation : ${URL}docs/"
+else
+  echo "❌ La publication a échoué : le site en ligne n'a PAS changé."
+  echo "Détail : gh run view $RUN --log-failed"
+  exit 1
+fi

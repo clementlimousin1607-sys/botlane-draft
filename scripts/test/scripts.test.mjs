@@ -32,9 +32,9 @@ test("validator catches unknown ids, bad ranges and self-counters", () => {
   bad.COUNTERS.adc.Jinx = ["Jinx"];
   bad.ADC.Jinx.k = "tank";
   bad.patch = "26";
-  bad.ESTIMATED = { adc: ["Lux"], mid: [] };
+  bad.ESTIMATED = { adc: ["Thresh"], mid: [] };
   const { errors } = validateData(bad, champions);
-  for (const needle of ['champion inconnu "Jynx"', "META.sup.Lux", "se contrer lui-même", "ADC.Jinx", "patch invalide", "ESTIMATED.adc.Lux", "ESTIMATED.mid"])
+  for (const needle of ['champion inconnu "Jynx"', "META.sup.Lux", "se contrer lui-même", "ADC.Jinx", "patch invalide", "ESTIMATED.adc.Thresh", "ESTIMATED.mid"])
     assert.ok(errors.some(e => e.includes(needle)), `missing error about ${needle}: ${errors.join(" | ")}`);
 });
 
@@ -46,10 +46,14 @@ test("Data Dragon version maps to the patch name", async () => {
   assert.deepEqual(await currentPatch(fake), { patch: "26.20", ddragon: "16.20.1" });
 });
 
+// The tests must not depend on what the last stats run wrote: they start from a copy of
+// data.json with a fixed source, scope and estimated list.
+const base = { ...structuredClone(data), source: "METAsrc", scope: "toutes élos",
+  ESTIMATED: { adc: [Object.keys(data.META.adc)[0]], sup: [] } };
 function runUpdate(fixture, extra = []) {
   const dir = mkdtempSync(join(tmpdir(), "bld-"));
   const copy = join(dir, "data.json"), out = join(dir, "out"), sum = join(dir, "sum");
-  copyFileSync(dataPath, copy);
+  writeFileSync(copy, formatData(base));
   writeFileSync(out, ""); writeFileSync(sum, "");
   const args = [join(root, "scripts/update-stats.mjs"), "--data", copy, "--html", htmlPath, "--today", "2026-10-01"];
   if (fixture) args.push("--adapter", join(root, "scripts/test/fixtures", fixture));
@@ -62,7 +66,7 @@ test("update without a source is a no-op", () => {
   const r = runUpdate(null);
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.out, /changed=false/);
-  assert.equal(r.raw, readFileSync(dataPath, "utf8"));
+  assert.equal(r.raw, formatData(base));
 });
 
 test("update with new stats rewrites META/COUNTERS and keeps curated data", () => {
@@ -73,10 +77,9 @@ test("update with new stats rewrites META/COUNTERS and keeps curated data", () =
   assert.equal(r.data.updated, "2026-10-01");
   assert.equal(r.data.source, "Fixture");
   assert.equal(r.data.notesPatch, "26.19", "patch notes stay hand-curated");
-  assert.equal(r.data.META.adc.Caitlyn[0], 67.88);
+  assert.equal(r.data.META.adc.Caitlyn[0], Math.round((data.META.adc.Caitlyn[0] + 1) * 100) / 100);
   assert.deepEqual(r.data.COUNTERS.adc.Caitlyn, ["Jhin", "Jinx", "Twitch"]);
   assert.deepEqual(r.data.TIPS, data.TIPS);
-  assert.ok(data.ESTIMATED, "fixture data.json marks some rows as estimated");
   assert.equal(r.data.ESTIMATED, undefined, "fresh stats drop the estimated marks");
   assert.equal(r.raw, formatData(r.data));
   assert.match(r.sum, /patch notes affichées datent du patch 26\.19/);
@@ -93,7 +96,7 @@ test("a truncated scrape is refused", () => {
   const r = runUpdate("source-broken.mjs");
   assert.equal(r.status, 1);
   assert.match(r.stdout, /résultat suspect/);
-  assert.equal(r.raw, readFileSync(dataPath, "utf8"));
+  assert.equal(r.raw, formatData(base));
 });
 
 test("an unknown champion id is refused", () => {
@@ -106,5 +109,5 @@ test("dry run reports but does not write", () => {
   const r = runUpdate("source-ok.mjs", ["--dry-run"]);
   assert.equal(r.status, 0);
   assert.match(r.out, /changed=false/);
-  assert.equal(r.raw, readFileSync(dataPath, "utf8"));
+  assert.equal(r.raw, formatData(base));
 });

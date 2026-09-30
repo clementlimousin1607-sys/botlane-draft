@@ -19,7 +19,10 @@ export function isUsable(info, gameVersionPrefix) {
 }
 
 // idOf: numeric championId -> Data Dragon id ("MissFortune"), or undefined when unknown.
-export function addMatch(tally, info, idOf) {
+// skip(puuid): true for the players the games were found through. They are picked high on the
+// ladder, so they win more than average: their lane (them and their lane opponent) is left out,
+// otherwise their champions look too strong and their opponents too weak.
+export function addMatch(tally, info, idOf, skip = () => false) {
   tally.matches++;
   const banned = new Set();
   for (const t of info.teams ?? []) for (const b of t.bans ?? []) { const id = idOf(b.championId); if (id) banned.add(id); }
@@ -27,6 +30,7 @@ export function addMatch(tally, info, idOf) {
   for (const [pos, role] of Object.entries(POSITION_ROLE)) {
     const side = info.participants.filter(p => p.teamPosition === pos);
     if (side.length !== 2 || side[0].teamId === side[1].teamId) continue;
+    if (side.some(p => skip(p.puuid))) continue;
     const t = tally[role];
     for (const p of side) {
       const me = idOf(p.championId); if (!me) continue;
@@ -48,6 +52,8 @@ function percentileScores(entries) {
   return Object.fromEntries(sorted.map((e, i) => [e.id, n === 1 ? 67 : 67 - (31 * i) / (n - 1)]));
 }
 
+// opts.ranked: { adc: Set, sup: Set } = champions the app can propose. Only they get a tier score
+// (an off-role Syndra bot would shift the scale); the others still count as lane opponents.
 export function computeStats(tally, opts = {}) {
   const minPickRate = opts.minPickRate ?? 0.005, minGames = opts.minGames ?? 20;
   const minMatchup = opts.minMatchup ?? 15, maxCounters = opts.maxCounters ?? 3;
@@ -57,9 +63,11 @@ export function computeStats(tally, opts = {}) {
     const t = tally[role];
     const kept = Object.keys(t.games).filter(id => t.games[id] >= Math.max(minGames, minPickRate * N));
     const presence = id => (t.games[id] + (tally.bans[id] ?? 0)) / N;
-    const med = median(kept.map(presence)) || 1;
+    const ranked = opts.ranked?.[role];
+    const scored = kept.filter(id => !ranked || ranked.has(id));
+    const med = median(scored.map(presence)) || 1;
     // Strength = winrate (shrunk) + how often the champion is picked or banned, relative to the role.
-    const entries = kept.map(id => ({
+    const entries = scored.map(id => ({
       id, strength: 100 * (shrunk(t.wins[id] ?? 0, t.games[id], 100) - 0.5) + 2 * Math.log(presence(id) / med),
     }));
     const scores = percentileScores(entries);
@@ -68,13 +76,15 @@ export function computeStats(tally, opts = {}) {
       const g = t.games[id], w = t.wins[id] ?? 0;
       META[role][id] = [round2(scores[id]), round2((100 * w) / g)];
       details[role][id] = { games: g, pick: round2((100 * g) / N), ban: round2((100 * (tally.bans[id] ?? 0)) / N) };
-      // Counters of `id`: kept champions that beat it in lane, with enough games to trust it.
-      const foes = Object.entries(t.vs[id] ?? {})
+    }
+    // Counters of every kept champion (an enemy Syndra bot has counters too): the kept champions that
+    // beat it in lane, with enough games to trust it.
+    for (const id of [...Object.keys(META[role]), ...kept.filter(id => !META[role][id])]) {
+      COUNTERS[role][id] = Object.entries(t.vs[id] ?? {})
         .filter(([foe, m]) => foe !== id && kept.includes(foe) && m.g >= minMatchup)
         .map(([foe, m]) => [foe, 1 - shrunk(m.w, m.g, 20)]) // the foe's winrate against `id`
         .filter(([, wr]) => wr > 0.52)
         .sort((a, b) => b[1] - a[1]).slice(0, maxCounters).map(([foe]) => foe);
-      COUNTERS[role][id] = foes;
     }
   }
   return { META, COUNTERS, details, matches: tally.matches };

@@ -250,6 +250,8 @@ footer p{max-width:none}
           <li><b>Score de tier</b> : le rang du champion dans son rôle, ramené sur l'échelle 36 à 67. Le classement combine le winrate (ramené vers 50 % quand il y a peu de parties) et la présence (picks + bans) par rapport aux autres champions du rôle.</li>
           <li><b>Counters</b> : les champions du même rôle qui gagnent plus de 52 % de leurs lanes contre lui, sur au moins 15 parties.</li>
           <li>Les champions joués dans moins de 0,5 % des parties du rôle sont laissés de côté (« rarement joué »).</li>
+          <li>Seuls les champions qui ont un profil dans l'appli reçoivent un tier ; un mage joué bot compte quand même comme adversaire (counters).</li>
+          <li>Les joueurs par lesquels on trouve les parties sont pris en haut du classement et gagnent plus que la moyenne : leur lane (eux et leur adversaire direct) n'est pas comptée, sinon leurs champions paraîtraient trop forts.</li>
         </ul>
         <p>Seuls des totaux sont gardés : aucun joueur n'est affiché ni enregistré. La collecte dure au plus 5 heures (limite d'un job GitHub : 6 h) et s'arrête à 30 000 parties. En dessous de 500 parties du patch, elle échoue plutôt que de publier du bruit.</p>
         <h3>Sur ta machine (recommandé)</h3>

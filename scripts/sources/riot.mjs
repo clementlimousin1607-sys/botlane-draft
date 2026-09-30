@@ -31,7 +31,7 @@ const TIER_FR = { EMERALD: "Émeraude", DIAMOND: "Diamant", MASTER: "Maître", G
 const DEFAULT_CACHE = join(dirname(fileURLToPath(import.meta.url)), "..", "..", ".stats-cache");
 const KEY_FILE = join(homedir(), ".config", "botlane-draft", "riot-key");
 
-export async function fetchStats({ patch, champions, env, log = console.log, fetchImpl = fetch, now = Date.now, signals = process }) {
+export async function fetchStats({ patch, champions, previous, env, log = console.log, fetchImpl = fetch, now = Date.now, signals = process }) {
   const key = readKey(env);
   const platform = env.RIOT_PLATFORM || "euw1", region = env.RIOT_REGION || "europe";
   const tiers = (env.RIOT_TIERS || "EMERALD,DIAMOND,MASTER,GRANDMASTER,CHALLENGER").split(",").map(s => s.trim().toUpperCase()).filter(Boolean);
@@ -60,7 +60,8 @@ export async function fetchStats({ patch, champions, env, log = console.log, fet
       const entries = await api.get(`https://${platform}.api.riotgames.com/lol/league-exp/v4/entries/RANKED_SOLO_5x5/${t}/${d}?page=${page}`);
       for (const e of entries ?? []) if (e.puuid) players.push(e.puuid);
     }
-    players.splice(0, players.length, ...new Set(players)); // a player seen on two pages counts once
+    const seeds = new Set(players); // a player seen on two pages counts once
+    players.splice(0, players.length, ...seeds);
     shuffle(players);
     log(`${players.length} joueurs classés trouvés (${tiers.map(t => TIER_FR[t]).join(", ")}), patch ${patch}` +
       (startMatches ? `, ${startMatches} parties déjà cumulées` : ""));
@@ -79,7 +80,7 @@ export async function fetchStats({ patch, champions, env, log = console.log, fet
         const m = await api.get(`https://${region}.api.riotgames.com/lol/match/v5/matches/${id}`);
         requests++;
         seen.add(id);
-        if (m && isUsable(m.info, gv)) addMatch(tally, m.info, idOf);
+        if (m && isUsable(m.info, gv)) addMatch(tally, m.info, idOf, p => seeds.has(p));
         else if (m && isOlder(m.info?.gameVersion, gv) && m.info.gameCreation) cache.since = Math.max(cache.since, Math.floor(m.info.gameCreation / 1000));
         if (tally.matches - lastLog >= 500) { lastLog = tally.matches; log(`${tally.matches} parties cumulées (${requests} requêtes ce lancement)`); }
         if (tally.matches - lastSave >= 200) { lastSave = tally.matches; cache.save(); }
@@ -93,7 +94,12 @@ export async function fetchStats({ patch, champions, env, log = console.log, fet
   const minMatches = Number(env.STATS_MIN_MATCHES || 500);
   if (tally.matches < minMatches) throw new Error(`seulement ${tally.matches} parties du patch ${patch} : pas assez pour des stats fiables (relance pour en ajouter)`);
 
-  const stats = computeStats(tally);
+  const ranked = previous?.ADC && previous?.SUP ? { adc: new Set(Object.keys(previous.ADC)), sup: new Set(Object.keys(previous.SUP)) } : undefined;
+  const stats = computeStats(tally, { ranked });
+  for (const r of ["adc", "sup"]) {
+    const off = Object.keys(tally[r].games).filter(id => !stats.META[r][id] && tally[r].games[id] >= 0.005 * tally.matches);
+    if (off.length) log(`${r.toUpperCase()} joués mais sans profil dans l'appli (pas classés) : ${off.join(", ")}`);
+  }
   const lowest = Object.keys(DIVISIONS).find(t => tiers.includes(t));
   const server = platform.replace(/\d+$/, "").toUpperCase();
   return { patch, META: stats.META, COUNTERS: stats.COUNTERS, scope: `${server} ${TIER_FR[lowest]}+, ${tally.matches.toLocaleString("fr-FR")} parties` };
@@ -107,6 +113,8 @@ function readKey(env) {
 }
 
 // Running totals of one patch / server / ranks. dir "" = in memory only.
+// CACHE_VERSION changes when the way games are counted changes: older totals are then dropped.
+const CACHE_VERSION = 2;
 export function openCache(dir, scope, now, log) {
   const name = `riot-${scope.patch}-${scope.platform}-${[...scope.tiers].sort().join("+").toLowerCase()}.json`;
   const file = dir ? join(dir, name) : null;
@@ -115,16 +123,17 @@ export function openCache(dir, scope, now, log) {
     try { state = JSON.parse(readFileSync(file, "utf8")); }
     catch { log(`Cache illisible (${name}) : on repart de zéro.`); }
   }
+  if (state && state.version !== CACHE_VERSION) log(`Cache d'une ancienne méthode de calcul (${name}) : on repart de zéro.`);
   const cache = {
-    tally: state?.tally ?? newTally(),
-    seen: new Set(state?.seen ?? []),
-    since: state?.since ?? Math.floor(now() / 1000) - 21 * 86400,
+    tally: state?.version === CACHE_VERSION ? state.tally : newTally(),
+    seen: new Set(state?.version === CACHE_VERSION ? state.seen : []),
+    since: state?.version === CACHE_VERSION ? state.since : Math.floor(now() / 1000) - 21 * 86400,
     save() {
       if (!file) return;
       mkdirSync(dir, { recursive: true });
       // Older patches are useless once a new one is cached.
       for (const f of readdirSync(dir)) if (f.startsWith("riot-") && f !== name && !f.startsWith(`riot-${scope.patch}-`)) rmSync(join(dir, f));
-      writeFileSync(file + ".tmp", JSON.stringify({ ...scope, since: cache.since, tally: cache.tally, seen: [...cache.seen] }));
+      writeFileSync(file + ".tmp", JSON.stringify({ version: CACHE_VERSION, ...scope, since: cache.since, tally: cache.tally, seen: [...cache.seen] }));
       renameSync(file + ".tmp", file);
     },
   };
