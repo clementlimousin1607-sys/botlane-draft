@@ -175,3 +175,25 @@ test("only champions with a profile get a tier score, others still count as oppo
   assert.deepEqual(s.COUNTERS.adc.Caitlyn, ["Jinx"], "Jinx has no profile but beats Caitlyn");
   assert.deepEqual(s.COUNTERS.adc.Jinx, [], "an unranked enemy still has its counters list");
 });
+
+test("duos, game length and matchups are measured", () => {
+  const t = newTally();
+  for (let i = 0; i < 60; i++) addMatch(t, { ...game(i < 40), gameDuration: i % 2 ? 1300 : 2000 }, idOf);
+  const s = computeStats(t, { minMatchup: 15, minDuo: 20, minPhase: 20 });
+  assert.deepEqual(s.DUO_STATS["Jinx|Lux"], [60, 40]);
+  assert.deepEqual(s.DUO_STATS["Caitlyn|Thresh"], [60, 20]);
+  assert.deepEqual(s.MATCHUPS.adc.Jinx.Caitlyn, [60, 40]);
+  assert.deepEqual(s.MATCHUPS.adc.Caitlyn.Jinx, [60, 20]);
+  assert.equal(s.PHASES.adc.Jinx.length, 4);
+  assert.equal(s.PHASES.adc.Jinx[0] + s.PHASES.adc.Jinx[2], 60, "every game is short or long here");
+  const seeded = newTally(); const g = game(true); g.participants[2].puuid = "seed"; // blue support
+  addMatch(seeded, g, idOf, p => p === "seed");
+  assert.deepEqual(seeded.duos, { "Caitlyn|Thresh": { g: 1, w: 0 } }, "the duo with the seed is left out");
+});
+
+test("a tally cached before duos were counted is upgraded", () => {
+  const old = { matches: 3, bans: {}, adc: { games: { Jinx: 3 }, wins: { Jinx: 2 }, vs: {} }, sup: { games: {}, wins: {}, vs: {} } };
+  addMatch(old, game(true), idOf);
+  assert.equal(old.adc.games.Jinx, 4);
+  assert.deepEqual(old.duos["Jinx|Lux"], { g: 1, w: 1 });
+});

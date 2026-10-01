@@ -21,7 +21,7 @@ import { readFileSync, writeFileSync, mkdirSync, readdirSync, rmSync, renameSync
 import { join, dirname } from "node:path";
 import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
-import { newTally, addMatch, isUsable, computeStats } from "../lib/riot-stats.mjs";
+import { newTally, addMatch, isUsable, computeStats, upgradeTally } from "../lib/riot-stats.mjs";
 import { patchToGameVersion } from "../lib/patch.mjs";
 
 export const info = { name: "API Riot", scope: "EUW Émeraude+" };
@@ -102,7 +102,10 @@ export async function fetchStats({ patch, champions, previous, env, log = consol
   }
   const lowest = Object.keys(DIVISIONS).find(t => tiers.includes(t));
   const server = platform.replace(/\d+$/, "").toUpperCase();
-  return { patch, META: stats.META, COUNTERS: stats.COUNTERS, scope: `${server} ${TIER_FR[lowest]}+, ${tally.matches.toLocaleString("fr-FR")} parties` };
+  // Duos and game length are only counted since 01/10/2026: an older cache has none yet (omitted).
+  const optional = Object.fromEntries([["MATCHUPS", stats.MATCHUPS], ["PHASES", stats.PHASES], ["DUO_STATS", stats.DUO_STATS]]
+    .filter(([, v]) => Object.values(v).some(x => typeof x !== "object" || Object.keys(x).length)));
+  return { patch, META: stats.META, COUNTERS: stats.COUNTERS, ...optional, scope: `${server} ${TIER_FR[lowest]}+, ${tally.matches.toLocaleString("fr-FR")} parties` };
 }
 
 function readKey(env) {
@@ -125,7 +128,7 @@ export function openCache(dir, scope, now, log) {
   }
   if (state && state.version !== CACHE_VERSION) log(`Cache d'une ancienne méthode de calcul (${name}) : on repart de zéro.`);
   const cache = {
-    tally: state?.version === CACHE_VERSION ? state.tally : newTally(),
+    tally: state?.version === CACHE_VERSION ? upgradeTally(state.tally) : newTally(),
     seen: new Set(state?.version === CACHE_VERSION ? state.seen : []),
     since: state?.version === CACHE_VERSION ? state.since : Math.floor(now() / 1000) - 21 * 86400,
     save() {

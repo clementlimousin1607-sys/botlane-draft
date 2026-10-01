@@ -91,13 +91,13 @@ for (const r of ["adc", "sup"]) {
   const before = Object.keys(prev.META?.[r] ?? {}).length, after = Object.keys(next.META?.[r] ?? {}).length;
   if (before && after < before * MIN_COVERAGE) fail(`META.${r} ne contient plus que ${after} champions contre ${before} : résultat suspect, rien n'est écrit.`);
 }
-// Fresh stats from the source replace the hand-estimated rows
-if (stats.ESTIMATED) next.ESTIMATED = stats.ESTIMATED; else delete next.ESTIMATED;
+// Fresh stats from the source replace the hand-estimated rows and any measured extra of the old run
+for (const k of ["ESTIMATED", "MATCHUPS", "PHASES", "DUO_STATS"]) if (stats[k]) next[k] = stats[k]; else delete next[k];
 const { errors, warnings } = validateData(next, champions);
 warnings.forEach(w => console.log(`::warning::${w}`));
 if (errors.length) fail(`data.json produit invalide :\n${errors.map(e => "- " + e).join("\n")}`);
 
-if (["patch", "source", "scope", "META", "COUNTERS"].every(k => same(prev[k], next[k]))) {
+if (["patch", "source", "scope", "META", "COUNTERS", "MATCHUPS", "PHASES", "DUO_STATS"].every(k => same(prev[k], next[k]))) {
   console.log("Stats identiques à la version publiée : rien à faire.");
   summary(["### Stats déjà à jour", "", `Patch ${next.patch}, source ${next.source}.`]);
   output("changed", "false");

@@ -1,13 +1,24 @@
 // Aggregates Riot match-v5 games into the META / COUNTERS format of data.json.
 // Pure functions (no network), so the maths can be tested on hand-made matches.
 //
-// Only totals are kept: champion games, wins, bans and lane matchups. No player id is stored.
+// Only totals are kept: champion games, wins, bans, lane matchups, bot-lane duos and wins by game
+// length. No player id is stored.
 const POSITION_ROLE = { BOTTOM: "adc", UTILITY: "sup" };
 const ROLES = ["adc", "sup"];
 
 export function newTally() {
-  const role = () => ({ games: {}, wins: {}, vs: {} });
-  return { matches: 0, bans: {}, adc: role(), sup: role() };
+  const role = () => ({ games: {}, wins: {}, vs: {}, len: {} });
+  return { matches: 0, bans: {}, adc: role(), sup: role(), duos: {} };
+}
+
+// Games shorter than SHORT seconds show early strength, longer than LONG late strength.
+export const SHORT = 25 * 60, LONG = 30 * 60;
+
+// Tallies cached before duos and game length were counted get the missing (empty) totals.
+export function upgradeTally(t) {
+  t.duos ??= {};
+  for (const r of ROLES) t[r].len ??= {};
+  return t;
 }
 
 const inc = (o, k, n = 1) => { o[k] = (o[k] ?? 0) + n; };
@@ -23,7 +34,9 @@ export function isUsable(info, gameVersionPrefix) {
 // ladder, so they win more than average: their lane (them and their lane opponent) is left out,
 // otherwise their champions look too strong and their opponents too weak.
 export function addMatch(tally, info, idOf, skip = () => false) {
+  upgradeTally(tally);
   tally.matches++;
+  const bucket = info.gameDuration < SHORT ? "s" : info.gameDuration > LONG ? "l" : null;
   const banned = new Set();
   for (const t of info.teams ?? []) for (const b of t.bans ?? []) { const id = idOf(b.championId); if (id) banned.add(id); }
   banned.forEach(id => inc(tally.bans, id));
@@ -38,7 +51,17 @@ export function addMatch(tally, info, idOf, skip = () => false) {
       const foe = idOf(side.find(x => x !== p).championId); if (!foe) continue;
       t.vs[me] ??= {}; t.vs[me][foe] ??= { g: 0, w: 0 };
       t.vs[me][foe].g++; if (p.win) t.vs[me][foe].w++;
+      if (bucket) { t.len[me] ??= { s: [0, 0], l: [0, 0] }; t.len[me][bucket][0]++; if (p.win) t.len[me][bucket][1]++; }
     }
+  }
+  // Bot-lane duos (ADC + support of the same team). A duo with a seed player in it is left out.
+  for (const team of [100, 200]) {
+    const a = info.participants.find(p => p.teamId === team && p.teamPosition === "BOTTOM");
+    const s = info.participants.find(p => p.teamId === team && p.teamPosition === "UTILITY");
+    if (!a || !s || skip(a.puuid) || skip(s.puuid)) continue;
+    const ia = idOf(a.championId), is = idOf(s.championId); if (!ia || !is) continue;
+    const d = (tally.duos[`${ia}|${is}`] ??= { g: 0, w: 0 });
+    d.g++; if (a.win) d.w++;
   }
 }
 
@@ -60,7 +83,9 @@ export function computeStats(tally, opts = {}) {
   // 400 virtual games at 50 %: a champion played 134 times at 63 % (one-tricks) does not outrank Jinx at 1 900 games.
   const prior = opts.prior ?? 400;
   const N = Math.max(1, tally.matches);
-  const META = {}, COUNTERS = {}, details = {};
+  upgradeTally(tally);
+  const minDuo = opts.minDuo ?? 20, minPhase = opts.minPhase ?? 40;
+  const META = {}, COUNTERS = {}, MATCHUPS = {}, PHASES = {}, details = {};
   for (const role of ROLES) {
     const t = tally[role];
     const kept = Object.keys(t.games).filter(id => t.games[id] >= Math.max(minGames, minPickRate * N));
@@ -88,8 +113,24 @@ export function computeStats(tally, opts = {}) {
         .filter(([, wr]) => wr > 0.52)
         .sort((a, b) => b[1] - a[1]).slice(0, maxCounters).map(([foe]) => foe);
     }
+    // Lane results of the ranked champions: { id: { foe: [games, wins of id] } }, enough games only.
+    MATCHUPS[role] = {};
+    for (const id of Object.keys(META[role])) {
+      const rows = Object.entries(t.vs[id] ?? {}).filter(([foe, m]) => foe !== id && m.g >= minMatchup).sort((a, b) => b[1].g - a[1].g);
+      if (rows.length) MATCHUPS[role][id] = Object.fromEntries(rows.map(([foe, m]) => [foe, [m.g, m.w]]));
+    }
+    // Wins in short and long games: [short games, short wins, long games, long wins].
+    PHASES[role] = {};
+    for (const id of Object.keys(META[role])) {
+      const l = t.len[id];
+      if (l && l.s[0] >= minPhase && l.l[0] >= minPhase) PHASES[role][id] = [l.s[0], l.s[1], l.l[0], l.l[1]];
+    }
   }
-  return { META, COUNTERS, details, matches: tally.matches };
+  // Duos of champions the app proposes, with enough games: { "Adc|Sup": [games, wins] }.
+  const DUO_STATS = Object.fromEntries(Object.entries(tally.duos)
+    .filter(([k, d]) => { const [a, s] = k.split("|"); return d.g >= minDuo && META.adc[a] && META.sup[s]; })
+    .sort((x, y) => y[1].g - x[1].g).map(([k, d]) => [k, [d.g, d.w]]));
+  return { META, COUNTERS, MATCHUPS, PHASES, DUO_STATS, details, matches: tally.matches };
 }
 
 function median(xs) {

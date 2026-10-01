@@ -65,6 +65,34 @@ export function validateData(data, champions) {
     }
   }
 
+  // Measured extras (optional, from the Riot source). [games, wins] pairs must be sane counts.
+  const counts = (v, n) => Array.isArray(v) && v.length === n && v.every(x => Number.isInteger(x) && x >= 0) && v.every((x, i) => i % 2 === 0 || x <= v[i - 1]);
+  if (data.MATCHUPS !== undefined) {
+    if (!isObj(data.MATCHUPS)) err("MATCHUPS doit être un objet {adc: {...}, sup: {...}}");
+    else for (const [r, m] of Object.entries(data.MATCHUPS)) {
+      if (!ROLES.includes(r) || !isObj(m)) { err(`MATCHUPS.${r} : rôle inconnu ou format invalide`); continue; }
+      for (const [id, foes] of Object.entries(m)) {
+        if (!known(id, `MATCHUPS.${r}`) || !isObj(foes)) continue;
+        for (const [foe, v] of Object.entries(foes)) if (known(foe, `MATCHUPS.${r}.${id}`) && !counts(v, 2)) err(`MATCHUPS.${r}.${id}.${foe} : attendu [parties, victoires], reçu ${JSON.stringify(v)}`);
+      }
+    }
+  }
+  if (data.PHASES !== undefined) {
+    if (!isObj(data.PHASES)) err("PHASES doit être un objet {adc: {...}, sup: {...}}");
+    else for (const [r, m] of Object.entries(data.PHASES)) {
+      if (!ROLES.includes(r) || !isObj(m)) { err(`PHASES.${r} : rôle inconnu ou format invalide`); continue; }
+      for (const [id, v] of Object.entries(m)) if (known(id, `PHASES.${r}`) && !counts(v, 4)) err(`PHASES.${r}.${id} : attendu [parties courtes, victoires, parties longues, victoires], reçu ${JSON.stringify(v)}`);
+    }
+  }
+  if (data.DUO_STATS !== undefined) {
+    if (!isObj(data.DUO_STATS)) err("DUO_STATS doit être un objet {\"Adc|Sup\": [parties, victoires]}");
+    else for (const [k, v] of Object.entries(data.DUO_STATS)) {
+      const [a, sp] = k.split("|");
+      if (!a || !sp) { err(`DUO_STATS : "${k}" attendu au format "ADC|Support"`); continue; }
+      if (known(a, "DUO_STATS") && known(sp, "DUO_STATS") && !counts(v, 2)) err(`DUO_STATS.${k} : attendu [parties, victoires], reçu ${JSON.stringify(v)}`);
+    }
+  }
+
   // Curated profiles
   if (!isObj(data.ADC)) err("ADC manquant");
   else for (const [id, p] of Object.entries(data.ADC)) {
