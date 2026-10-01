@@ -156,6 +156,7 @@ footer p{max-width:none}
           <li><span><b>Lis le verdict.</b> La grande carte donne le meilleur choix et ses raisons. En dessous : les meilleurs duos de vos deux pools, ton pool classé, puis un plan de lane et des conseils contre les champions d'en face.</span></li>
           <li><span><b>Ouvre « Top, jungle et mid »</b> pour affiner avec toute la compo. Les conseils sur les dégâts AP/AD, les plongeurs, les tanks, les soins et le poke en dépendent.</span></li>
         </ol>
+        <p style="margin-top:12px">La <b>Tier list</b> classe les ADC et les supports du patch avec leur winrate, leur pick rate, leur ban rate et leur nombre de parties ; touche un en-tête pour trier. Touche un champion, ou « Fiche de … » sous le conseil, pour ouvrir sa <b>fiche</b> : ses chiffres, ses meilleurs et pires matchups en lane, ses meilleurs duos, s'il est plutôt early ou late, et le conseil pour jouer contre lui.</p>
         <p style="margin-top:12px">La <b>Roulette</b> tire un champion ou un duo au hasard : dans ton pool, dans tout le rôle, dans vos deux pools, ou dans tout le roster. Le bouton <b>Thème</b> alterne entre le thème de l'appareil, clair et sombre.</p>
       </section>
 
@@ -168,7 +169,7 @@ footer p{max-width:none}
         <div class="tbl"><table>
           <thead><tr><th>Critère</th><th>Points</th><th>Ce qui compte</th></tr></thead>
           <tbody>
-            <tr><td>Force méta</td><td class="n">−4 à +10</td><td>Le score de tier du patch, plus 1,2 point par point de winrate au-dessus de 50 % (en moins en dessous). Pour une valeur estimée (<code>ESTIMATED</code>), seul le tier compte. Un champion rarement joué dans le rôle prend −3.</td></tr>
+            <tr><td>Force méta</td><td class="n">−4 à +10</td><td>Le score de tier du patch, plus 1,2 point par point de winrate au-dessus de 50 % (en moins en dessous). Avec les stats de l'API Riot, ce winrate est d'abord ramené vers 50 % selon le nombre de parties (400 parties virtuelles), pour qu'un champion peu joué ne passe pas en tête sur un coup de chance. Pour une valeur estimée (<code>ESTIMATED</code>), seul le tier compte. Un champion rarement joué dans le rôle prend −3.</td></tr>
             <tr><td>Stats de matchup</td><td class="n"><span class="pos">+7</span> / <span class="neg">−7</span></td><td>Tu fais partie des champions qui battent le plus souvent ton adversaire direct, ou l'inverse.</td></tr>
             <tr><td>Matchups connus</td><td class="n"><span class="pos">+5</span> / <span class="neg">−5</span></td><td>Des cas classiques, par exemple le Bouclier noir de Morgana contre un hook.</td></tr>
             <tr><td>Face à face en lane</td><td class="n">−5 à +4</td><td>Portée, force en début de partie contre scaling, mobilité face à un engage, murs qui bloquent les projectiles. Pour un support : l'archétype contre celui d'en face et la pression de lane.</td></tr>
@@ -200,6 +201,7 @@ footer p{max-width:none}
             <tr><td><code>META</code></td><td><code>{adc: {Id: [score, winrate]}, sup: {…}}</code></td><td>Score de tier (échelle METAsrc, environ 36 à 67) et winrate en %.</td></tr>
             <tr><td><code>COUNTERS</code></td><td><code>{adc: {Id: [Id, …]}, sup: {…}}</code></td><td>Pour chaque champion, ceux du même rôle qui le battent le plus souvent.</td></tr>
             <tr><td><code>ESTIMATED</code></td><td><code>{adc: [Id, …], sup: […]}</code></td><td>Facultatif. Lignes de <code>META</code> estimées plutôt que relevées sur la source : l'appli garde leur tier mais ignore leur winrate, et le signale dans les explications. La prochaine mise à jour par une source efface la liste.</td></tr>
+            <tr><td><code>STATS</code></td><td><code>{adc: {Id: [parties, pick %, ban %]}, sup: {…}}</code></td><td>Facultatif (source API Riot). Affiché dans la tier list et la fiche du champion.</td></tr>
             <tr><td><code>MATCHUPS</code></td><td><code>{adc: {Id: {Adversaire: [parties, victoires]}}, sup: {…}}</code></td><td>Facultatif (source API Riot). Résultats en lane, au moins 15 parties. Remplace les counters dans la note et s'affiche dans les conseils (« gagne 45,6 % de ses lanes contre Jinx »).</td></tr>
             <tr><td><code>DUO_STATS</code></td><td><code>{"Adc|Sup": [parties, victoires]}</code></td><td>Facultatif. Winrate des duos bot, au moins 20 parties. Remplace la liste <code>DUOS</code> pour les duos mesurés (qui reste en secours, « duo classique »).</td></tr>
             <tr><td><code>PHASES</code></td><td><code>{adc: {Id: [courtes, victoires, longues, victoires]}, sup: {…}}</code></td><td>Facultatif. Parties de moins de 25 min et de plus de 30 min (au moins 40 de chaque) : le « Plan de lane » compare l'early des deux duos d'après ces chiffres.</td></tr>

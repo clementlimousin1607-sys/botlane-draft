@@ -183,6 +183,7 @@ test("duos, game length and matchups are measured", () => {
   assert.deepEqual(s.DUO_STATS["Jinx|Lux"], [60, 40]);
   assert.deepEqual(s.DUO_STATS["Caitlyn|Thresh"], [60, 20]);
   assert.deepEqual(s.MATCHUPS.adc.Jinx.Caitlyn, [60, 40]);
+  assert.deepEqual(s.STATS.adc.Jinx, [60, 100, 0], "in every counted lane, never banned");
   assert.deepEqual(s.MATCHUPS.adc.Caitlyn.Jinx, [60, 20]);
   assert.equal(s.PHASES.adc.Jinx.length, 4);
   assert.equal(s.PHASES.adc.Jinx[0] + s.PHASES.adc.Jinx[2], 60, "every game is short or long here");
@@ -196,4 +197,15 @@ test("a tally cached before duos were counted is upgraded", () => {
   addMatch(old, game(true), idOf);
   assert.equal(old.adc.games.Jinx, 4);
   assert.deepEqual(old.duos["Jinx|Lux"], { g: 1, w: 1 });
+});
+
+test("bans count for a role in proportion to the games played in it", () => {
+  const t = newTally();
+  // Lux: support in 30 games, mid (here: top slot) in 30 more, banned in all 60 by red side
+  for (let i = 0; i < 30; i++) addMatch(t, game(true, { bans: [[], [3]] }), idOf);
+  for (let i = 0; i < 30; i++) { const g = game(true, { sup: [7, 4], bans: [[], [3]] }); g.participants[0].championId = 3; addMatch(t, g, idOf); }
+  const s = computeStats(t, { minMatchup: 15 });
+  assert.equal(s.STATS.sup.Lux[2], 50, "half of its 60 bans belong to support, over 60 matches");
+  const old = computeStats({ ...t, pos: undefined, duos: {} });
+  assert.equal(old.STATS.sup.Lux[2], null, "unknown for a cache without role counts");
 });

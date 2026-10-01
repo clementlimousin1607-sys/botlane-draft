@@ -231,6 +231,48 @@ code{font-size:.92em;background:var(--panel2);border:1px solid var(--line);borde
 .rduo small{display:block;color:var(--muted);font:500 13px/1.2 var(--body)}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--bg);padding:9px 14px;border-radius:8px;font:600 15px/1 var(--display);opacity:0;transition:.2s;z-index:80;pointer-events:none}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+/* Tier list */
+.tl{display:grid;gap:4px}
+.tlh,.tlr{display:grid;grid-template-columns:28px 34px minmax(0,1fr) 62px 54px 54px 58px;gap:8px;align-items:center}
+.tlh{font:600 12.5px/1 var(--display);color:var(--muted);padding:0 8px 4px;position:sticky;top:-12px;background:var(--panel);z-index:1;padding-top:6px}
+.tlh button{background:none;border:0;padding:4px 0;color:inherit;font:inherit;text-align:right}
+.tlh button[aria-pressed="true"]{color:var(--ink);text-decoration:underline;text-underline-offset:3px}
+.tlh .l{text-align:left}
+.tlr{width:100%;padding:5px 8px;border:1px solid transparent;border-radius:8px;background:var(--panel2);text-align:left}
+.tlr:hover{border-color:var(--line)}
+.tlr .ic{width:34px;height:34px;border-radius:6px;overflow:hidden}
+.tlr .nm{font:700 16px/1.1 var(--display);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tlr .n{font:600 15px/1 var(--display);font-variant-numeric:tabular-nums;text-align:right}
+.tlr .n.m{color:var(--muted)}
+.tier{font:800 13px/1 var(--display);border-radius:5px;padding:4px 0;text-align:center;background:var(--panel);border:1px solid var(--line)}
+.tier.t-Sp,.tier.t-S{color:var(--amber);border-color:var(--amber)}
+.tier.t-A{color:var(--good)}
+@media(max-width:560px){.tlh,.tlr{grid-template-columns:26px 30px minmax(0,1fr) 56px 46px 48px}.tlh .gm,.tlr .gm{display:none}.tlr .ic{width:30px;height:30px}}
+/* Fiche champion */
+.ihead{display:grid;grid-template-columns:64px minmax(0,1fr) auto;gap:12px;align-items:center;margin-bottom:12px}
+.ihead .ic{width:64px;height:64px;border-radius:10px;overflow:hidden;border:2px solid var(--amber)}
+.ihead .nm{font:800 26px/1 var(--display)}
+.ihead .sub{color:var(--muted);font-size:14px;margin-top:4px}
+.ihead .score{font:800 38px/1 var(--display);color:var(--amber);text-align:right}
+.ihead .score small{display:block;font:600 12px/1 var(--display);color:var(--muted)}
+.tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:14px}
+.tiles div{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:8px 10px}
+.tiles b{display:block;font:800 21px/1.1 var(--display);font-variant-numeric:tabular-nums}
+.tiles span{font-size:12.5px;color:var(--muted)}
+@media(max-width:420px){.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.isec{margin:0 0 14px}
+.isec h3{font:700 16px/1.1 var(--display);margin:0 0 8px}
+.isec p{margin:0;font-size:14.5px}
+.mus{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:560px){.mus{grid-template-columns:1fr}}
+.mu{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:8px;align-items:center;padding:4px 6px;border-radius:7px;background:var(--panel2);margin-bottom:4px;width:100%;border:0;text-align:left}
+.mu .ic{width:28px;height:28px;border-radius:5px;overflow:hidden}
+.mu .nm{font:600 15px/1.1 var(--display);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mu .v{font:700 15px/1 var(--display);font-variant-numeric:tabular-nums;text-align:right}
+.mu .v small{display:block;font:500 11.5px/1.2 var(--body);color:var(--muted)}
+.mu .v.good{color:var(--good)} .mu .v.bad{color:var(--bad)}
+.ilink{background:none;border:0;padding:6px 0;color:var(--muted);font:600 14px/1 var(--display);text-decoration:underline;text-underline-offset:3px}
+.ilink:hover{color:var(--ink)}
 /* Meilleur choix hors pool, dans le verdict */
 .better{display:grid;grid-template-columns:32px minmax(0,1fr) auto;gap:10px;align-items:center;width:100%;margin:12px 0 0;padding:7px 10px 7px 7px;border:1px dashed var(--line);border-radius:9px;background:var(--panel2);text-align:left;font-size:14px;color:var(--muted)}
 .better b{color:var(--ink)}
@@ -262,6 +304,7 @@ code{font-size:.92em;background:var(--panel2);border:1px solid var(--line);borde
   <header class="top">
     <div class="brand"><h1><b>Bot</b>lane <i>Draft</i></h1><span class="patch" id="patchTag">Patch …</span></div>
     <div class="acts">
+      <button class="btn" id="btnTier">Tier list</button>
       <button class="btn" id="btnPool">Mes champions <span class="n" id="poolN">0</span></button>
       <button class="btn primary" id="btnRoulette">Roulette</button>
     </div>
@@ -326,6 +369,24 @@ code{font-size:.92em;background:var(--panel2);border:1px solid var(--line);borde
   </div>
 </div>
 
+<!-- Tier list -->
+<div class="ov" id="tierOv" role="dialog" aria-modal="true" aria-labelledby="tierTitle">
+  <div class="sheet">
+    <div class="shead"><div class="t"><h2 id="tierTitle">Tier list</h2><button class="x" data-close aria-label="Fermer">✕</button></div></div>
+    <div class="sbody" id="tierBody"></div>
+    <div class="sfoot"><span class="hint" id="tierFoot"></span></div>
+  </div>
+</div>
+
+<!-- Fiche champion -->
+<div class="ov" id="infoOv" role="dialog" aria-modal="true" aria-labelledby="infoTitle">
+  <div class="sheet">
+    <div class="shead"><div class="t"><h2 id="infoTitle">Champion</h2><button class="x" data-close aria-label="Fermer">✕</button></div></div>
+    <div class="sbody" id="infoBody"></div>
+    <div class="sfoot"><span class="hint" id="infoFoot"></span></div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -360,7 +421,7 @@ const AD_OVERRIDE = "Smolder Corki Kaisa Varus Jayce".split(" ");
 (function(){
 "use strict";
 // ---------- Données du patch (remplies depuis data.json au démarrage) ----------
-let DATA={}, PATCH="", META, COUNTERS, ESTIMATED, MATCHUPS, PHASES, DUO_STATS, ADC, SUP, DUOS, TIPS, PATCH_NOTES;
+let DATA={}, PATCH="", META, COUNTERS, ESTIMATED, STATS, MATCHUPS, PHASES, DUO_STATS, ADC, SUP, DUOS, TIPS, PATCH_NOTES;
 // ---------- Helpers ----------
 const $ = (s,r=document)=>r.querySelector(s);
 const esc = s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -419,7 +480,10 @@ function metaPts(role,id){
   const m=META[role][id]; if(!m)return{v:-3,t:null};
   const est=isEstimated(role,id);
   const tier=Math.max(0,Math.min(1,(m[0]-38)/29));
-  const v=Math.round(tier*14-4+(est?0:(m[1]-50)*1.2));
+  // Winrate ramené vers 50 % selon le nombre de parties (400 parties virtuelles, comme le tier) :
+  // 63 % sur 134 parties pèse comme 53 %, pas comme 63 %
+  const st=(STATS[role]||{})[id], wr=st?((m[1]/100)*st[0]+200)/(st[0]+400)*100:m[1];
+  const v=Math.round(tier*14-4+(est?0:(wr-50)*1.2));
   return{v,t:m,est};
 }
 function metaText(role,id,mp){
@@ -739,7 +803,7 @@ function renderVerdict(top,locked,noPool,better){
     </div>
     <ul class="reasons">${reasons}</ul>
     ${better?`<button class="better" data-take="${better.id}"><span class="ic">${img(better.id)}</span><span>Hors de ton pool, <b>${esc(nm(better.id))}</b> ferait mieux ici</span><span class="sc">${better.score}</span></button>`:""}
-    <div class="vacts">${locked?`<button class="btn" data-clear="a:${S.role}">Changer de pick</button>`:`<button class="btn primary" data-take="${top.id}">Je prends ${esc(nm(top.id))}</button>`}</div>
+    <div class="vacts">${locked?`<button class="btn" data-clear="a:${S.role}">Changer de pick</button>`:`<button class="btn primary" data-take="${top.id}">Je prends ${esc(nm(top.id))}</button>`}<button class="ilink" data-info="${S.role}:${top.id}">Fiche de ${esc(nm(top.id))}</button></div>
   </div>`;
 }
 // Barre du bas sur mobile : le conseil reste visible pendant qu'on remplit la draft
@@ -822,6 +886,69 @@ function renderAdvice(top){
   if(!cards.length)html+=`<p style="margin:0;color:var(--muted)">Ajoute l'ADC et le support d'en face pour recevoir un plan de lane et des conseils de compo.</p>`;
   else html+=`<div class="adv">${cards.map(([c,h,p,id])=>`<div class="tip ${c}"><h3>${id?img(id):""}${esc(h)}</h3><p>${esc(p)}</p></div>`).join("")}</div>`;
   $("#advCard").innerHTML=html;
+}
+
+// ---------- Tier list et fiche champion ----------
+const fr1=x=>x.toFixed(1).replace(".",",");
+const T={role:null,sort:"score"};
+const tierCls=l=>"t-"+l.replace("+","p");
+function openTier(role){
+  T.role=role||S.role; T.sort="score"; renderTier();
+  $("#tierOv").classList.add("open");
+}
+function renderTier(){
+  const r=T.role, ids=Object.keys(META[r]).filter(id=>BY[id]);
+  const st=id=>(STATS[r]||{})[id];
+  const key={score:id=>META[r][id][0],wr:id=>META[r][id][1],pick:id=>st(id)?st(id)[1]:-1,ban:id=>st(id)&&st(id)[2]!==null?st(id)[2]:-1,games:id=>st(id)?st(id)[0]:-1}[T.sort];
+  ids.sort((a,b)=>key(b)-key(a));
+  const hb=(k,l,cls="")=>`<button class="${cls}" data-tsort="${k}" aria-pressed="${T.sort===k}">${l}</button>`;
+  const hasSt=Object.keys(STATS[r]||{}).length>0;
+  const row=id=>{const m=META[r][id], s=st(id), tl=tierLabel(r,id);
+    return `<button class="tlr" data-info="${r}:${id}"><span class="tier ${tierCls(tl)}">${tl}</span><span class="ic">${img(id)}</span><span class="nm">${esc(nm(id))}${isEstimated(r,id)?' <small style="color:var(--muted);font-weight:500">estimé</small>':""}</span>
+      <span class="n">${isEstimated(r,id)?"—":fr1(m[1])+" %"}</span><span class="n m">${s?fr1(s[1])+" %":"—"}</span><span class="n m">${s&&s[2]!==null?fr1(s[2])+" %":"—"}</span><span class="n m gm">${s?s[0].toLocaleString("fr-FR"):"—"}</span></button>`};
+  $("#tierBody").innerHTML=`<div class="ptabs" role="group" aria-label="Rôle"><button data-trole="adc" aria-pressed="${r==="adc"}">ADC</button><button data-trole="sup" aria-pressed="${r==="sup"}">Support</button></div>
+    <div class="tl"><div class="tlh"><span>${hb("score","Tier","l")}</span><span></span><span class="l">Champion</span>${hb("wr","Victoires")}${hb("pick","Pick")}${hb("ban","Ban")}<span class="gm">${hb("games","Parties")}</span></div>
+    ${ids.map(row).join("")}</div>`;
+  const noBan=hasSt&&Object.values(STATS[r]).every(x=>x[2]===null);
+  $("#tierFoot").textContent=`Patch ${PATCH} · ${DATA.source||""}${DATA.scope?", "+DATA.scope:""}${hasSt?(noBan?" · ban par rôle à la prochaine collecte":""):" · pick, ban et parties à la prochaine mise à jour"} · touche un champion pour sa fiche`;
+}
+// Tous les résultats en lane connus de id : [{foe,g,w}]
+function matchupsOf(role,id){
+  const out={}, m=MATCHUPS[role]||{};
+  Object.entries(m[id]||{}).forEach(([foe,[g,w]])=>out[foe]={foe,g,w});
+  Object.entries(m).forEach(([foe,row])=>{if(row[id]&&!out[foe]){const [g,w]=row[id];out[foe]={foe,g,w:g-w}}});
+  return Object.values(out).filter(x=>x.foe!==id);
+}
+function openInfo(role,id){
+  const m=META[role][id], s=(STATS[role]||{})[id], prof=role==="adc"?ADC[id]:SUP[id];
+  const tl=m?tierLabel(role,id):"hors méta", est=isEstimated(role,id);
+  $("#infoTitle").textContent=`${nm(id)} · ${role==="adc"?"ADC":"Support"}`;
+  const tile=(v,l)=>`<div><b>${v}</b><span>${l}</span></div>`;
+  let h=`<div class="ihead"><div class="ic">${img(id)}</div><div><div class="nm">${esc(nm(id))}</div><div class="sub">Tier ${tl}${est?" (estimé)":""} au patch ${PATCH}</div></div>${m?`<div class="score">${Math.round(m[0])}<small>score méta</small></div>`:""}</div>`;
+  if(m)h+=`<div class="tiles">${tile(est?"—":fr1(m[1])+" %","Victoires")}${tile(s?fr1(s[1])+" %":"—","Pick")}${tile(s&&s[2]!==null?fr1(s[2])+" %":"—","Ban")}${tile(s?s[0].toLocaleString("fr-FR"):"—","Parties")}</div>`;
+  else h+=`<p style="color:var(--muted)">Pas assez de parties dans ce rôle ce patch pour avoir des stats.</p>`;
+  // Early / late
+  const ph=(PHASES[role]||{})[id];
+  if(ph){const e=100*ph[1]/ph[0], l=100*ph[3]/ph[2], d=e-l;
+    h+=`<div class="isec"><h3>Début ou fin de partie</h3><p>${d>=3?"<b>Plutôt early</b> : ":d<=-3?"<b>Plutôt late</b> : ":"<b>Régulier</b> : "}${fr1(e)} % de victoires dans les parties de moins de 25 min (${ph[0]}), ${fr1(l)} % dans celles de plus de 30 min (${ph[2]}).</p></div>`;}
+  // Matchups
+  const mus=matchupsOf(role,id).map(x=>({...x,v:(x.w+25)/(x.g+50)}));
+  if(mus.length){
+    const best=[...mus].sort((a,b)=>b.v-a.v).slice(0,5), worst=[...mus].sort((a,b)=>a.v-b.v).slice(0,5).filter(x=>!best.includes(x));
+    const li=x=>`<button class="mu" data-info="${role}:${x.foe}"><span class="ic">${img(x.foe)}</span><span class="nm">${esc(nm(x.foe))}</span><span class="v ${x.w/x.g>=.52?"good":x.w/x.g<=.48?"bad":""}">${fr1(100*x.w/x.g)} %<small>${x.g} parties</small></span></button>`;
+    h+=`<div class="isec"><h3>En lane contre ${role==="adc"?"les ADC":"les supports"}</h3><div class="mus"><div><div class="grp">Ses meilleurs matchups</div>${best.map(li).join("")}</div><div><div class="grp">Ses pires matchups</div>${worst.map(li).join("")||'<p style="color:var(--muted)">—</p>'}</div></div></div>`;
+  }
+  // Duos
+  const duos=Object.entries(DUO_STATS).map(([k,[g,w]])=>{const [a,sp]=k.split("|");return{mate:role==="adc"?(a===id?sp:null):(sp===id?a:null),g,w}}).filter(x=>x.mate).sort((x,y)=>(y.w+20)/(y.g+40)-(x.w+20)/(x.g+40)).slice(0,5);
+  const mateRole=role==="adc"?"sup":"adc";
+  if(duos.length)h+=`<div class="isec"><h3>Meilleurs duos</h3>${duos.map(x=>`<button class="mu" data-info="${mateRole}:${x.mate}"><span class="ic">${img(x.mate)}</span><span class="nm">${esc(nm(x.mate))}</span><span class="v ${x.w/x.g>=.52?"good":x.w/x.g<=.48?"bad":""}">${fr1(100*x.w/x.g)} %<small>${x.g} parties</small></span></button>`).join("")}</div>`;
+  else{const classic=DUOS.filter(k=>role==="adc"?k.startsWith(id+"|"):k.endsWith("|"+id)).map(k=>k.split("|")[role==="adc"?1:0]);
+    if(classic.length)h+=`<div class="isec"><h3>Duos classiques</h3><p>${classic.map(nm).join(", ")} <span style="color:var(--muted)">(liste écrite à la main ; winrates mesurés à la prochaine mise à jour)</span></p></div>`;}
+  if(TIPS[id])h+=`<div class="isec"><h3>Pour jouer contre ${esc(nm(id))}</h3><p>${esc(TIPS[id])}</p></div>`;
+  if(!prof)h+=`<p style="color:var(--muted)">Ce champion n'a pas de profil ${role==="adc"?"ADC":"support"} dans l'appli : il n'est pas proposé.</p>`;
+  $("#infoBody").innerHTML=h; $("#infoBody").scrollTop=0;
+  $("#infoFoot").textContent=`Stats : ${DATA.source||"?"}${DATA.scope?", "+DATA.scope:""}, patch ${PATCH}`;
+  $("#infoOv").classList.add("open");
 }
 
 // ---------- Picker ----------
@@ -984,7 +1111,13 @@ function scoreSUPwith(a,s){
 function bindEvents(){
 document.addEventListener("click",e=>{
   const t=e.target.closest("button,[data-close]"); if(!t)return;
-  if(t.matches("[data-close]")||t.classList.contains("x")){closeOv();return}
+  if(t.matches("[data-close]")||t.classList.contains("x")){
+    // Fermer la fiche ramène à la tier list si elle était ouverte dessous
+    if(t.closest("#infoOv")&&$("#tierOv").classList.contains("open")){$("#infoOv").classList.remove("open");return}
+    closeOv();return}
+  if(t.dataset.info){const [r,id]=t.dataset.info.split(":");openInfo(r,id);return}
+  if(t.dataset.trole){T.role=t.dataset.trole;renderTier();return}
+  if(t.dataset.tsort){T.sort=t.dataset.tsort;renderTier();return}
   if(t.dataset.slot){openPicker("slot",t.dataset.slot);return}
   if(t.dataset.pick){pick(t.dataset.pick);return}
   if(t.dataset.take){S.draft.a[S.role]=t.dataset.take;save();closeOv();renderAll();toast(`${nm(t.dataset.take)} verrouillé`);return}
@@ -1000,18 +1133,19 @@ document.addEventListener("click",e=>{
   switch(t.id){
     case"btnPool":openPicker("pool");break;
     case"btnRoulette":openRoulette();break;
+    case"btnTier":openTier();break;
     case"addBan":openPicker("bans");break;
     case"reset":S.draft=EMPTY();save();renderAll();toast("Nouvelle draft");break;
     case"theme":cycleTheme();break;
     case"vbar":$("#verdict").scrollIntoView({behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth",block:"start"});break;
   }
 });
-document.querySelectorAll(".ov").forEach(o=>o.addEventListener("click",e=>{if(e.target===o)closeOv()}));
+document.querySelectorAll(".ov").forEach(o=>o.addEventListener("click",e=>{if(e.target!==o)return; if(o.id==="infoOv"&&$("#tierOv").classList.contains("open"))o.classList.remove("open"); else closeOv()}));
 $("#pickSearch").addEventListener("input",renderPicker);
 $("#pickSearch").addEventListener("keydown",e=>{
   if(e.key==="Enter"){e.preventDefault(); if(P.list[0])pick(P.list[0]); if(P.mode!=="slot"){$("#pickSearch").value="";renderPicker()}}
 });
-document.addEventListener("keydown",e=>{if(e.key==="Escape")closeOv()});
+document.addEventListener("keydown",e=>{if(e.key!=="Escape")return; if($("#infoOv").classList.contains("open")&&$("#tierOv").classList.contains("open"))$("#infoOv").classList.remove("open"); else closeOv()});
 }
 
 function cycleTheme(){
@@ -1032,7 +1166,7 @@ async function loadData(){
   return d;
 }
 function applyData(d){
-  DATA=d; PATCH=d.patch; META=d.META; COUNTERS=d.COUNTERS; ESTIMATED=d.ESTIMATED||{}; MATCHUPS=d.MATCHUPS||{}; PHASES=d.PHASES||{}; DUO_STATS=d.DUO_STATS||{}; ADC=d.ADC; SUP=d.SUP; DUOS=d.DUOS; TIPS=d.TIPS; PATCH_NOTES=d.PATCH_NOTES;
+  DATA=d; PATCH=d.patch; META=d.META; COUNTERS=d.COUNTERS; ESTIMATED=d.ESTIMATED||{}; STATS=d.STATS||{}; MATCHUPS=d.MATCHUPS||{}; PHASES=d.PHASES||{}; DUO_STATS=d.DUO_STATS||{}; ADC=d.ADC; SUP=d.SUP; DUOS=d.DUOS; TIPS=d.TIPS; PATCH_NOTES=d.PATCH_NOTES;
   document.title=`Botlane Draft — patch ${PATCH}`;
   $("#patchTag").textContent=`Patch ${PATCH}`;
   document.querySelectorAll(".dpatch").forEach(el=>el.textContent=PATCH);

@@ -8,7 +8,7 @@ const ROLES = ["adc", "sup"];
 
 export function newTally() {
   const role = () => ({ games: {}, wins: {}, vs: {}, len: {} });
-  return { matches: 0, bans: {}, adc: role(), sup: role(), duos: {} };
+  return { matches: 0, bans: {}, adc: role(), sup: role(), duos: {}, pos: {} };
 }
 
 // Games shorter than SHORT seconds show early strength, longer than LONG late strength.
@@ -17,6 +17,7 @@ export const SHORT = 25 * 60, LONG = 30 * 60;
 // Tallies cached before duos and game length were counted get the missing (empty) totals.
 export function upgradeTally(t) {
   t.duos ??= {};
+  t.pos ??= {}; // champion -> { n: games in any role, adc, sup }: share of its bans that belongs to the role
   for (const r of ROLES) t[r].len ??= {};
   return t;
 }
@@ -40,6 +41,11 @@ export function addMatch(tally, info, idOf, skip = () => false) {
   const banned = new Set();
   for (const t of info.teams ?? []) for (const b of t.bans ?? []) { const id = idOf(b.championId); if (id) banned.add(id); }
   banned.forEach(id => inc(tally.bans, id));
+  for (const p of info.participants) {
+    const id = idOf(p.championId); if (!id) continue;
+    const c = (tally.pos[id] ??= { n: 0, adc: 0, sup: 0 });
+    c.n++; const r = POSITION_ROLE[p.teamPosition]; if (r) c[r]++;
+  }
   for (const [pos, role] of Object.entries(POSITION_ROLE)) {
     const side = info.participants.filter(p => p.teamPosition === pos);
     if (side.length !== 2 || side[0].teamId === side[1].teamId) continue;
@@ -85,11 +91,16 @@ export function computeStats(tally, opts = {}) {
   const N = Math.max(1, tally.matches);
   upgradeTally(tally);
   const minDuo = opts.minDuo ?? 20, minPhase = opts.minPhase ?? 40;
-  const META = {}, COUNTERS = {}, MATCHUPS = {}, PHASES = {}, details = {};
+  const META = {}, COUNTERS = {}, MATCHUPS = {}, PHASES = {}, STATS = {};
   for (const role of ROLES) {
     const t = tally[role];
-    const kept = Object.keys(t.games).filter(id => t.games[id] >= Math.max(minGames, minPickRate * N));
-    const presence = id => (t.games[id] + (tally.bans[id] ?? 0)) / N;
+    // Games in which this lane was counted (seed lanes are left out): 2 champions per counted lane.
+    const lanes = Math.max(1, Object.values(t.games).reduce((a, b) => a + b, 0) / 2);
+    const kept = Object.keys(t.games).filter(id => t.games[id] >= Math.max(minGames, minPickRate * lanes));
+    // Bans are not tied to a role: a Viktor banned for mid must not push the ADC Viktor up. They count
+    // in proportion to the games the champion plays in this role (unknown for older caches: not counted).
+    const roleBans = id => { const c = tally.pos[id]; return c?.n ? (tally.bans[id] ?? 0) * c[role] / c.n : null; };
+    const presence = id => t.games[id] / lanes + (roleBans(id) ?? 0) / N;
     const ranked = opts.ranked?.[role];
     const scored = kept.filter(id => !ranked || ranked.has(id));
     const med = median(scored.map(presence)) || 1;
@@ -98,11 +109,12 @@ export function computeStats(tally, opts = {}) {
       id, strength: 100 * (shrunk(t.wins[id] ?? 0, t.games[id], prior) - 0.5) + 2 * Math.log(presence(id) / med),
     }));
     const scores = percentileScores(entries);
-    META[role] = {}; COUNTERS[role] = {}; details[role] = {};
+    META[role] = {}; COUNTERS[role] = {}; STATS[role] = {};
     for (const { id } of entries.sort((a, b) => scores[b.id] - scores[a.id])) {
       const g = t.games[id], w = t.wins[id] ?? 0;
       META[role][id] = [round2(scores[id]), round2((100 * w) / g)];
-      details[role][id] = { games: g, pick: round2((100 * g) / N), ban: round2((100 * (tally.bans[id] ?? 0)) / N) };
+      const b = roleBans(id);
+      STATS[role][id] = [g, round2((100 * g) / lanes), b === null ? null : round2((100 * b) / N)]; // games, pick %, ban % in this role
     }
     // Counters of every kept champion (an enemy Syndra bot has counters too): the kept champions that
     // beat it in lane, with enough games to trust it.
@@ -130,7 +142,7 @@ export function computeStats(tally, opts = {}) {
   const DUO_STATS = Object.fromEntries(Object.entries(tally.duos)
     .filter(([k, d]) => { const [a, s] = k.split("|"); return d.g >= minDuo && META.adc[a] && META.sup[s]; })
     .sort((x, y) => y[1].g - x[1].g).map(([k, d]) => [k, [d.g, d.w]]));
-  return { META, COUNTERS, MATCHUPS, PHASES, DUO_STATS, details, matches: tally.matches };
+  return { META, COUNTERS, STATS, MATCHUPS, PHASES, DUO_STATS, matches: tally.matches };
 }
 
 function median(xs) {

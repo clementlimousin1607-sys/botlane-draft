@@ -77,6 +77,14 @@ export function validateData(data, champions) {
       }
     }
   }
+  if (data.STATS !== undefined) {
+    if (!isObj(data.STATS)) err("STATS doit être un objet {adc: {...}, sup: {...}}");
+    else for (const [r, m] of Object.entries(data.STATS)) {
+      if (!ROLES.includes(r) || !isObj(m)) { err(`STATS.${r} : rôle inconnu ou format invalide`); continue; }
+      for (const [id, v] of Object.entries(m)) if (known(id, `STATS.${r}`) && !(Array.isArray(v) && v.length === 3 && Number.isInteger(v[0]) && v[0] >= 0 && isNum(v[1], 0, 100) && (v[2] === null || isNum(v[2], 0, 100))))
+        err(`STATS.${r}.${id} : attendu [parties, pick %, ban % ou null], reçu ${JSON.stringify(v)}`);
+    }
+  }
   if (data.PHASES !== undefined) {
     if (!isObj(data.PHASES)) err("PHASES doit être un objet {adc: {...}, sup: {...}}");
     else for (const [r, m] of Object.entries(data.PHASES)) {

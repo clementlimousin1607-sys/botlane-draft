@@ -103,7 +103,7 @@ export async function fetchStats({ patch, champions, previous, env, log = consol
   const lowest = Object.keys(DIVISIONS).find(t => tiers.includes(t));
   const server = platform.replace(/\d+$/, "").toUpperCase();
   // Duos and game length are only counted since 01/10/2026: an older cache has none yet (omitted).
-  const optional = Object.fromEntries([["MATCHUPS", stats.MATCHUPS], ["PHASES", stats.PHASES], ["DUO_STATS", stats.DUO_STATS]]
+  const optional = Object.fromEntries([["STATS", stats.STATS], ["MATCHUPS", stats.MATCHUPS], ["PHASES", stats.PHASES], ["DUO_STATS", stats.DUO_STATS]]
     .filter(([, v]) => Object.values(v).some(x => typeof x !== "object" || Object.keys(x).length)));
   return { patch, META: stats.META, COUNTERS: stats.COUNTERS, ...optional, scope: `${server} ${TIER_FR[lowest]}+, ${tally.matches.toLocaleString("fr-FR")} parties` };
 }
