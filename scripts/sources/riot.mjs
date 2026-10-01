@@ -103,8 +103,9 @@ export async function fetchStats({ patch, champions, previous, env, log = consol
   const lowest = Object.keys(DIVISIONS).find(t => tiers.includes(t));
   const server = platform.replace(/\d+$/, "").toUpperCase();
   // Duos and game length are only counted since 01/10/2026: an older cache has none yet (omitted).
-  const optional = Object.fromEntries([["STATS", stats.STATS], ["MATCHUPS", stats.MATCHUPS], ["PHASES", stats.PHASES], ["DUO_STATS", stats.DUO_STATS]]
+  const optional = Object.fromEntries([["STATS", stats.STATS], ["MATCHUPS", stats.MATCHUPS], ["PHASES", stats.PHASES], ["LANE_WINS", stats.LANE_WINS], ["KITS", stats.KITS], ["DUO_STATS", stats.DUO_STATS]]
     .filter(([, v]) => Object.values(v).some(x => typeof x !== "object" || Object.keys(x).length)));
+  if (optional.KITS) optional.NAMES = await kitNames(fetchImpl, optional.KITS, log);
   return { patch, META: stats.META, COUNTERS: stats.COUNTERS, ...optional, scope: `${server} ${TIER_FR[lowest]}+, ${tally.matches.toLocaleString("fr-FR")} parties` };
 }
 
@@ -147,6 +148,28 @@ export function openCache(dir, scope, now, log) {
 export function isOlder(version, prefix) {
   const v = String(version ?? "").split(".").map(Number), p = prefix.split(".").map(Number);
   return v[0] < p[0] || (v[0] === p[0] && v[1] < p[1]);
+}
+
+// French names of the runes and summoner spells used in KITS, from Data Dragon (best effort).
+async function kitNames(fetchImpl, kits, log) {
+  const used = { perk: new Set(), spell: new Set() };
+  for (const r of Object.values(kits)) for (const k of Object.values(r)) {
+    k.runes.forEach(([id]) => used.perk.add(String(id)));
+    k.spells.forEach(([pair]) => pair.split("|").forEach(id => used.spell.add(id)));
+  }
+  try {
+    const v = (await (await fetchImpl("https://ddragon.leagueoflegends.com/api/versions.json")).json())[0];
+    const base = `https://ddragon.leagueoflegends.com/cdn/${v}/data/fr_FR`;
+    const runes = await (await fetchImpl(`${base}/runesReforged.json`)).json();
+    const spells = (await (await fetchImpl(`${base}/summoner.json`)).json()).data;
+    const perk = {}, spell = {};
+    for (const tree of runes) for (const slot of tree.slots) for (const r of slot.runes) if (used.perk.has(String(r.id))) perk[r.id] = r.name;
+    for (const sp of Object.values(spells)) if (used.spell.has(sp.key)) spell[sp.key] = sp.name;
+    return { perk, spell };
+  } catch (e) {
+    log(`Noms des runes et sorts indisponibles (${e.message}) : l'appli affichera leurs numéros.`);
+    return { perk: {}, spell: {} };
+  }
 }
 
 // numeric championId -> Data Dragon id, restricted to the champions the app knows.

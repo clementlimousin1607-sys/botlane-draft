@@ -73,7 +73,7 @@ export function validateData(data, champions) {
       if (!ROLES.includes(r) || !isObj(m)) { err(`MATCHUPS.${r} : rôle inconnu ou format invalide`); continue; }
       for (const [id, foes] of Object.entries(m)) {
         if (!known(id, `MATCHUPS.${r}`) || !isObj(foes)) continue;
-        for (const [foe, v] of Object.entries(foes)) if (known(foe, `MATCHUPS.${r}.${id}`) && !counts(v, 2)) err(`MATCHUPS.${r}.${id}.${foe} : attendu [parties, victoires], reçu ${JSON.stringify(v)}`);
+        for (const [foe, v] of Object.entries(foes)) if (known(foe, `MATCHUPS.${r}.${id}`) && !counts(v, 2) && !counts(v, 4)) err(`MATCHUPS.${r}.${id}.${foe} : attendu [parties, victoires] ou [parties, victoires, lanes, lanes gagnées], reçu ${JSON.stringify(v)}`);
       }
     }
   }
@@ -92,6 +92,27 @@ export function validateData(data, champions) {
       for (const [id, v] of Object.entries(m)) if (known(id, `PHASES.${r}`) && !counts(v, 4)) err(`PHASES.${r}.${id} : attendu [parties courtes, victoires, parties longues, victoires], reçu ${JSON.stringify(v)}`);
     }
   }
+  if (data.LANE_WINS !== undefined) {
+    if (!isObj(data.LANE_WINS)) err("LANE_WINS doit être un objet {adc: {...}, sup: {...}}");
+    else for (const [r, m] of Object.entries(data.LANE_WINS)) {
+      if (!ROLES.includes(r) || !isObj(m)) { err(`LANE_WINS.${r} : rôle inconnu ou format invalide`); continue; }
+      for (const [id, v] of Object.entries(m)) if (known(id, `LANE_WINS.${r}`) && !counts(v, 2)) err(`LANE_WINS.${r}.${id} : attendu [lanes, lanes gagnées], reçu ${JSON.stringify(v)}`);
+    }
+  }
+  if (data.KITS !== undefined) {
+    if (!isObj(data.KITS)) err("KITS doit être un objet {adc: {...}, sup: {...}}");
+    else for (const [r, m] of Object.entries(data.KITS)) {
+      if (!ROLES.includes(r) || !isObj(m)) { err(`KITS.${r} : rôle inconnu ou format invalide`); continue; }
+      for (const [id, k] of Object.entries(m)) {
+        if (!known(id, `KITS.${r}`)) continue;
+        const ok = isObj(k) && Array.isArray(k.runes) && Array.isArray(k.spells)
+          && k.runes.every(x => Array.isArray(x) && x.length === 3 && Number.isInteger(x[0]) && counts(x.slice(1), 2))
+          && k.spells.every(x => Array.isArray(x) && x.length === 3 && /^\d+\|\d+$/.test(x[0]) && counts(x.slice(1), 2));
+        if (!ok) err(`KITS.${r}.${id} : attendu {runes: [[id, parties, victoires]], spells: [["4|7", parties, victoires]]}`);
+      }
+    }
+  }
+  if (data.NAMES !== undefined && !(isObj(data.NAMES) && isObj(data.NAMES.perk) && isObj(data.NAMES.spell))) err("NAMES doit être {perk: {id: nom}, spell: {id: nom}}");
   if (data.DUO_STATS !== undefined) {
     if (!isObj(data.DUO_STATS)) err("DUO_STATS doit être un objet {\"Adc|Sup\": [parties, victoires]}");
     else for (const [k, v] of Object.entries(data.DUO_STATS)) {

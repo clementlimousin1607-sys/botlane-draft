@@ -209,3 +209,19 @@ test("bans count for a role in proportion to the games played in it", () => {
   const old = computeStats({ ...t, pos: undefined, duos: {} });
   assert.equal(old.STATS.sup.Lux[2], null, "unknown for a cache without role counts");
 });
+
+test("lane results, keystones and summoner spells are counted", () => {
+  const t = newTally();
+  for (let i = 0; i < 60; i++) {
+    const g = { ...game(i < 30), gameDuration: 1800 };
+    g.participants.forEach(p => { p.challenges = { laningPhaseGoldExpAdvantage: p.teamId === 100 && i < 45 ? 1 : 0 };
+      p.perks = { styles: [{ selections: [{ perk: p.teamId === 100 ? 8008 : 8021 }] }] }; p.summoner1Id = 7; p.summoner2Id = 4; });
+    addMatch(t, g, idOf);
+  }
+  const s = computeStats(t, { minMatchup: 15, minPhase: 20 });
+  assert.deepEqual(s.MATCHUPS.adc.Jinx.Caitlyn, [60, 30, 60, 45], "game won 30/60, lane won 45/60");
+  assert.deepEqual(s.LANE_WINS.adc.Jinx, [60, 45]);
+  assert.deepEqual(s.KITS.adc.Jinx, { runes: [[8008, 60, 30]], spells: [["4|7", 60, 30]] });
+  const plain = newTally(); addMatch(plain, game(true), idOf);
+  assert.equal(plain.adc.vs.Jinx.Caitlyn.ln, undefined, "no challenges: lane result unknown, not lost");
+});

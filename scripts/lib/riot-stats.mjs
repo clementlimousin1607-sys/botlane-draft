@@ -1,13 +1,13 @@
 // Aggregates Riot match-v5 games into the META / COUNTERS format of data.json.
 // Pure functions (no network), so the maths can be tested on hand-made matches.
 //
-// Only totals are kept: champion games, wins, bans, lane matchups, bot-lane duos and wins by game
-// length. No player id is stored.
+// Only totals are kept: champion games, wins, bans, lane matchups (game won, lane won), bot-lane duos,
+// wins by game length, keystone runes and summoner spells. No player id is stored.
 const POSITION_ROLE = { BOTTOM: "adc", UTILITY: "sup" };
 const ROLES = ["adc", "sup"];
 
 export function newTally() {
-  const role = () => ({ games: {}, wins: {}, vs: {}, len: {} });
+  const role = () => ({ games: {}, wins: {}, vs: {}, len: {}, lane: {}, kit: {} });
   return { matches: 0, bans: {}, adc: role(), sup: role(), duos: {}, pos: {} };
 }
 
@@ -18,7 +18,7 @@ export const SHORT = 25 * 60, LONG = 30 * 60;
 export function upgradeTally(t) {
   t.duos ??= {};
   t.pos ??= {}; // champion -> { n: games in any role, adc, sup }: share of its bans that belongs to the role
-  for (const r of ROLES) t[r].len ??= {};
+  for (const r of ROLES) { t[r].len ??= {}; t[r].lane ??= {}; t[r].kit ??= {}; }
   return t;
 }
 
@@ -56,7 +56,23 @@ export function addMatch(tally, info, idOf, skip = () => false) {
       inc(t.games, me); if (p.win) inc(t.wins, me);
       const foe = idOf(side.find(x => x !== p).championId); if (!foe) continue;
       t.vs[me] ??= {}; t.vs[me][foe] ??= { g: 0, w: 0 };
-      t.vs[me][foe].g++; if (p.win) t.vs[me][foe].w++;
+      const v = t.vs[me][foe];
+      v.g++; if (p.win) v.w++;
+      // Lane won = more gold and experience than the lane opponent at the end of the laning phase
+      // (Riot's challenges.laningPhaseGoldExpAdvantage, 0 or 1; missing in some games).
+      const lw = p.challenges?.laningPhaseGoldExpAdvantage;
+      if (lw === 0 || lw === 1) {
+        v.ln = (v.ln ?? 0) + 1; v.lw = (v.lw ?? 0) + lw;
+        const l = (t.lane[me] ??= [0, 0]); l[0]++; l[1] += lw;
+      }
+      // Keystone rune and summoner spells (pair in a fixed order)
+      const k = (t.kit[me] ??= { k: {}, s: {} });
+      const ks = p.perks?.styles?.[0]?.selections?.[0]?.perk;
+      if (ks) { const e = (k.k[ks] ??= [0, 0]); e[0]++; if (p.win) e[1]++; }
+      if (p.summoner1Id && p.summoner2Id) {
+        const sp = [p.summoner1Id, p.summoner2Id].sort((a, b) => a - b).join("|");
+        const e = (k.s[sp] ??= [0, 0]); e[0]++; if (p.win) e[1]++;
+      }
       if (bucket) { t.len[me] ??= { s: [0, 0], l: [0, 0] }; t.len[me][bucket][0]++; if (p.win) t.len[me][bucket][1]++; }
     }
   }
@@ -91,7 +107,7 @@ export function computeStats(tally, opts = {}) {
   const N = Math.max(1, tally.matches);
   upgradeTally(tally);
   const minDuo = opts.minDuo ?? 20, minPhase = opts.minPhase ?? 40;
-  const META = {}, COUNTERS = {}, MATCHUPS = {}, PHASES = {}, STATS = {};
+  const META = {}, COUNTERS = {}, MATCHUPS = {}, PHASES = {}, STATS = {}, LANE_WINS = {}, KITS = {};
   for (const role of ROLES) {
     const t = tally[role];
     // Games in which this lane was counted (seed lanes are left out): 2 champions per counted lane.
@@ -129,7 +145,17 @@ export function computeStats(tally, opts = {}) {
     MATCHUPS[role] = {};
     for (const id of Object.keys(META[role])) {
       const rows = Object.entries(t.vs[id] ?? {}).filter(([foe, m]) => foe !== id && m.g >= minMatchup).sort((a, b) => b[1].g - a[1].g);
-      if (rows.length) MATCHUPS[role][id] = Object.fromEntries(rows.map(([foe, m]) => [foe, [m.g, m.w]]));
+      // [games, wins] or, when the lane result is known in enough games, [games, wins, lanes, lanes won]
+      if (rows.length) MATCHUPS[role][id] = Object.fromEntries(rows.map(([foe, m]) => [foe, (m.ln ?? 0) >= minMatchup ? [m.g, m.w, m.ln, m.lw] : [m.g, m.w]]));
+    }
+    // Lanes won overall: [lanes, lanes won]; keystones and summoner pairs: top picks with [id, games, wins].
+    LANE_WINS[role] = {}; KITS[role] = {};
+    const top = (o, n) => Object.entries(o).filter(([, [g]]) => g >= minPhase).sort((a, b) => b[1][0] - a[1][0]).slice(0, n).map(([k, [g, w]]) => [k, g, w]);
+    for (const id of Object.keys(META[role])) {
+      const l = t.lane[id]; if (l && l[0] >= minPhase) LANE_WINS[role][id] = l;
+      const k = t.kit[id]; if (!k) continue;
+      const runes = top(k.k, 3).map(([kk, g, w]) => [Number(kk), g, w]), spells = top(k.s, 2);
+      if (runes.length || spells.length) KITS[role][id] = { runes, spells };
     }
     // Wins in short and long games: [short games, short wins, long games, long wins].
     PHASES[role] = {};
@@ -142,7 +168,7 @@ export function computeStats(tally, opts = {}) {
   const DUO_STATS = Object.fromEntries(Object.entries(tally.duos)
     .filter(([k, d]) => { const [a, s] = k.split("|"); return d.g >= minDuo && META.adc[a] && META.sup[s]; })
     .sort((x, y) => y[1].g - x[1].g).map(([k, d]) => [k, [d.g, d.w]]));
-  return { META, COUNTERS, STATS, MATCHUPS, PHASES, DUO_STATS, matches: tally.matches };
+  return { META, COUNTERS, STATS, MATCHUPS, PHASES, LANE_WINS, KITS, DUO_STATS, matches: tally.matches };
 }
 
 function median(xs) {

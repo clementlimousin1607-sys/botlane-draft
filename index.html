@@ -255,11 +255,13 @@ code{font-size:.92em;background:var(--panel2);border:1px solid var(--line);borde
 .ihead .sub{color:var(--muted);font-size:14px;margin-top:4px}
 .ihead .score{font:800 38px/1 var(--display);color:var(--amber);text-align:right}
 .ihead .score small{display:block;font:600 12px/1 var(--display);color:var(--muted)}
-.tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:14px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:8px;margin-bottom:14px}
 .tiles div{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:8px 10px}
 .tiles b{display:block;font:800 21px/1.1 var(--display);font-variant-numeric:tabular-nums}
 .tiles span{font-size:12.5px;color:var(--muted)}
 @media(max-width:420px){.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.mu>span:first-child:empty{width:0}
+div.mu{grid-template-columns:0 minmax(0,1fr) auto}
 .isec{margin:0 0 14px}
 .isec h3{font:700 16px/1.1 var(--display);margin:0 0 8px}
 .isec p{margin:0;font-size:14.5px}
@@ -421,7 +423,7 @@ const AD_OVERRIDE = "Smolder Corki Kaisa Varus Jayce".split(" ");
 (function(){
 "use strict";
 // ---------- Données du patch (remplies depuis data.json au démarrage) ----------
-let DATA={}, PATCH="", META, COUNTERS, ESTIMATED, STATS, MATCHUPS, PHASES, DUO_STATS, ADC, SUP, DUOS, TIPS, PATCH_NOTES;
+let DATA={}, PATCH="", META, COUNTERS, ESTIMATED, STATS, MATCHUPS, PHASES, LANE_WINS, KITS, NAMES, DUO_STATS, ADC, SUP, DUOS, TIPS, PATCH_NOTES;
 // ---------- Helpers ----------
 const $ = (s,r=document)=>r.querySelector(s);
 const esc = s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -507,8 +509,9 @@ const pct=(w,g)=>(100*w/g).toFixed(1).replace(".",",");
 // Résultat en lane de id contre foe (même rôle), dans un sens ou dans l'autre
 function muOf(role,id,foe){
   const m=MATCHUPS[role]||{};
-  if(m[id]&&m[id][foe]){const [g,w]=m[id][foe];return{g,w}}
-  if(m[foe]&&m[foe][id]){const [g,w]=m[foe][id];return{g,w:g-w}}
+  // [parties, victoires] ou [parties, victoires, lanes, lanes gagnées]
+  if(m[id]&&m[id][foe]){const [g,w,ln=0,lw=0]=m[id][foe];return{g,w,ln,lw}}
+  if(m[foe]&&m[foe][id]){const [g,w,ln=0,lw=0]=m[foe][id];return{g,w:g-w,ln,lw:ln-lw}}
   return null;
 }
 function duoOf(a,s){const v=DUO_STATS[a+"|"+s];return v?{g:v[0],w:v[1]}:null}
@@ -516,7 +519,7 @@ function duoOf(a,s){const v=DUO_STATS[a+"|"+s];return v?{g:v[0],w:v[1]}:null}
 function earlyIdx(role,id){const p=(PHASES[role]||{})[id];return p?100*(p[1]/p[0]-p[3]/p[2]):null}
 function vsLine(R,role,id,E){
   const mu=muOf(role,id,E);
-  if(mu){const v=pts(mu.w,mu.g,50,7);add(R,v,`Contre ${nm(E)} : ${pct(mu.w,mu.g)} % de lanes gagnées (${mu.g} parties)`);return}
+  if(mu){const v=pts(mu.w,mu.g,50,7);add(R,v,`Contre ${nm(E)} : ${pct(mu.w,mu.g)} % de victoires (${mu.g} parties)${mu.ln?`, lane gagnée ${pct(mu.lw,mu.ln)} %`:""}`);return}
   if((COUNTERS[role][E]||[]).includes(id))add(R,7,`Stats ${PATCH} : bat souvent ${nm(E)}`);
   if((COUNTERS[role][id]||[]).includes(E))add(R,-7,`Stats ${PATCH} : ${nm(E)} gagne souvent ce matchup`);
 }
@@ -836,22 +839,37 @@ function renderAdvice(top){
   const cards=[];
   // Plan de lane
   if((d.e.adc||d.e.sup)&&(myAdc||mySup)){
-    // Mesuré quand les 4 champions ont assez de parties courtes et longues, sinon d'après les profils
+    // Du plus précis au moins précis : lanes gagnées dans ces matchups, puis lanes gagnées par
+    // champion, puis winrate des parties courtes contre longues, puis profils écrits à la main.
+    const laneMu=(r,me,foe)=>{const m=me&&foe&&muOf(r,me,foe);return m&&m.ln?m:null};
+    const lA=laneMu("adc",myAdc,d.e.adc), lS=laneMu("sup",mySup,d.e.sup);
+    const laneRate=(r,id)=>{const l=id&&(LANE_WINS[r]||{})[id];return l?100*l[1]/l[0]:null};
+    const lr=[["adc",myAdc],["sup",mySup],["adc",d.e.adc],["sup",d.e.sup]].map(([r,id])=>id?laneRate(r,id):50);
     const ei=[["adc",myAdc],["sup",mySup],["adc",d.e.adc],["sup",d.e.sup]].map(([r,id])=>id?earlyIdx(r,id):0);
-    const measured=ei.every(x=>x!==null)&&[myAdc,mySup,d.e.adc,d.e.sup].filter(Boolean).length>=2;
-    const us=measured?ei[0]+ei[1]:lanePower(myAdc,mySup), them=measured?ei[2]+ei[3]:lanePower(d.e.adc,d.e.sup);
-    const diff=measured?(us-them)/2:us-them;
+    const enough=[myAdc,mySup,d.e.adc,d.e.sup].filter(Boolean).length>=2;
+    let diff, proof="";
+    if(lA||lS){
+      const ms=[lA,lS].filter(Boolean), rate=ms.reduce((a,m)=>a+m.lw,0)/ms.reduce((a,m)=>a+m.ln,0);
+      diff=(rate-.5)*40; // 55 % de lanes gagnées = +2, le seuil d'une lane « plus forte »
+      proof=` D'après les parties du patch : ${[[lA,myAdc,d.e.adc],[lS,mySup,d.e.sup]].filter(x=>x[0]).map(([m,a,b])=>`${nm(a)} prend l'avantage en lane contre ${nm(b)} dans ${pct(m.lw,m.ln)} % des cas (${m.ln} lanes)`).join(", ")}.`;
+    }else if(enough&&lr.every(x=>x!==null)){
+      diff=((lr[0]+lr[1])-(lr[2]+lr[3]))/2/2.5;
+      proof=" D'après les lanes gagnées par chaque champion ce patch.";
+    }else if(enough&&ei.every(x=>x!==null)){
+      diff=((ei[0]+ei[1])-(ei[2]+ei[3]))/2;
+      proof=" D'après les parties du patch : winrate des parties de moins de 25 min comparé à celles de plus de 30 min.";
+    }else diff=lanePower(myAdc,mySup)-lanePower(d.e.adc,d.e.sup);
     let t;
     if(diff>=2)t="Votre lane est plus forte : cherchez le niveau 2 en premier (première vague + 3 sbires de la 2e), gardez la vague côté ennemi et jouez agressif avant 6.";
     else if(diff<=-2)t="Leur lane est plus forte au début : laissez venir la vague sous votre tour, farmez safe et demandez un passage du jungler. Vous reprenez l'avantage plus tard.";
     else t="Lane équilibrée : c'est la gestion de vague et le jungler qui feront la différence. Ne ratez pas le niveau 2 et jouez autour des timers de dragon.";
     const us2=[myAdc,mySup].filter(Boolean).map(nm).join(" + ");
-    cards.push(["k","Plan de lane",`${t}${us2?` (${us2})`:""}${measured?" D'après les parties du patch : winrate des parties de moins de 25 min comparé à celles de plus de 30 min.":""}`]);
+    cards.push(["k","Plan de lane",`${t}${us2?` (${us2})`:""}${proof}`]);
   }
   const vsCard=(role,mine,E)=>{
     if(!E)return;
     const mu=mine&&muOf(role,mine,E);
-    const stat=mu?`${nm(mine)} gagne ${pct(mu.w,mu.g)} % de ses lanes contre ${nm(E)} (${mu.g} parties). `:"";
+    const stat=mu?`${nm(mine)} gagne ${pct(mu.w,mu.g)} % de ses parties contre ${nm(E)} (${mu.g})${mu.ln?` et prend l'avantage en lane dans ${pct(mu.lw,mu.ln)} % des cas`:""}. `:"";
     if(stat||TIPS[E])cards.push(["e",`Contre ${nm(E)}`,stat+(TIPS[E]||""),E]);
   };
   vsCard("adc",myAdc,d.e.adc);
@@ -915,8 +933,8 @@ function renderTier(){
 // Tous les résultats en lane connus de id : [{foe,g,w}]
 function matchupsOf(role,id){
   const out={}, m=MATCHUPS[role]||{};
-  Object.entries(m[id]||{}).forEach(([foe,[g,w]])=>out[foe]={foe,g,w});
-  Object.entries(m).forEach(([foe,row])=>{if(row[id]&&!out[foe]){const [g,w]=row[id];out[foe]={foe,g,w:g-w}}});
+  Object.entries(m[id]||{}).forEach(([foe,[g,w,ln=0,lw=0]])=>out[foe]={foe,g,w,ln,lw});
+  Object.entries(m).forEach(([foe,row])=>{if(row[id]&&!out[foe]){const [g,w,ln=0,lw=0]=row[id];out[foe]={foe,g,w:g-w,ln,lw:ln-lw}}});
   return Object.values(out).filter(x=>x.foe!==id);
 }
 function openInfo(role,id){
@@ -925,7 +943,8 @@ function openInfo(role,id){
   $("#infoTitle").textContent=`${nm(id)} · ${role==="adc"?"ADC":"Support"}`;
   const tile=(v,l)=>`<div><b>${v}</b><span>${l}</span></div>`;
   let h=`<div class="ihead"><div class="ic">${img(id)}</div><div><div class="nm">${esc(nm(id))}</div><div class="sub">Tier ${tl}${est?" (estimé)":""} au patch ${PATCH}</div></div>${m?`<div class="score">${Math.round(m[0])}<small>score méta</small></div>`:""}</div>`;
-  if(m)h+=`<div class="tiles">${tile(est?"—":fr1(m[1])+" %","Victoires")}${tile(s?fr1(s[1])+" %":"—","Pick")}${tile(s&&s[2]!==null?fr1(s[2])+" %":"—","Ban")}${tile(s?s[0].toLocaleString("fr-FR"):"—","Parties")}</div>`;
+  const ln=(LANE_WINS[role]||{})[id];
+  if(m)h+=`<div class="tiles">${tile(est?"—":fr1(m[1])+" %","Victoires")}${ln?tile(fr1(100*ln[1]/ln[0])+" %","Lanes gagnées"):""}${tile(s?fr1(s[1])+" %":"—","Pick")}${tile(s&&s[2]!==null?fr1(s[2])+" %":"—","Ban")}${tile(s?s[0].toLocaleString("fr-FR"):"—","Parties")}</div>`;
   else h+=`<p style="color:var(--muted)">Pas assez de parties dans ce rôle ce patch pour avoir des stats.</p>`;
   // Early / late
   const ph=(PHASES[role]||{})[id];
@@ -935,7 +954,7 @@ function openInfo(role,id){
   const mus=matchupsOf(role,id).map(x=>({...x,v:(x.w+25)/(x.g+50)}));
   if(mus.length){
     const best=[...mus].sort((a,b)=>b.v-a.v).slice(0,5), worst=[...mus].sort((a,b)=>a.v-b.v).slice(0,5).filter(x=>!best.includes(x));
-    const li=x=>`<button class="mu" data-info="${role}:${x.foe}"><span class="ic">${img(x.foe)}</span><span class="nm">${esc(nm(x.foe))}</span><span class="v ${x.w/x.g>=.52?"good":x.w/x.g<=.48?"bad":""}">${fr1(100*x.w/x.g)} %<small>${x.g} parties</small></span></button>`;
+    const li=x=>`<button class="mu" data-info="${role}:${x.foe}"><span class="ic">${img(x.foe)}</span><span class="nm">${esc(nm(x.foe))}</span><span class="v ${x.w/x.g>=.52?"good":x.w/x.g<=.48?"bad":""}">${fr1(100*x.w/x.g)} %<small>${x.g} parties${x.ln?` · lane ${fr1(100*x.lw/x.ln)} %`:""}</small></span></button>`;
     h+=`<div class="isec"><h3>En lane contre ${role==="adc"?"les ADC":"les supports"}</h3><div class="mus"><div><div class="grp">Ses meilleurs matchups</div>${best.map(li).join("")}</div><div><div class="grp">Ses pires matchups</div>${worst.map(li).join("")||'<p style="color:var(--muted)">—</p>'}</div></div></div>`;
   }
   // Duos
@@ -944,6 +963,14 @@ function openInfo(role,id){
   if(duos.length)h+=`<div class="isec"><h3>Meilleurs duos</h3>${duos.map(x=>`<button class="mu" data-info="${mateRole}:${x.mate}"><span class="ic">${img(x.mate)}</span><span class="nm">${esc(nm(x.mate))}</span><span class="v ${x.w/x.g>=.52?"good":x.w/x.g<=.48?"bad":""}">${fr1(100*x.w/x.g)} %<small>${x.g} parties</small></span></button>`).join("")}</div>`;
   else{const classic=DUOS.filter(k=>role==="adc"?k.startsWith(id+"|"):k.endsWith("|"+id)).map(k=>k.split("|")[role==="adc"?1:0]);
     if(classic.length)h+=`<div class="isec"><h3>Duos classiques</h3><p>${classic.map(nm).join(", ")} <span style="color:var(--muted)">(liste écrite à la main ; winrates mesurés à la prochaine mise à jour)</span></p></div>`;}
+  // Runes et sorts
+  const kit=(KITS[role]||{})[id];
+  if(kit){
+    const tot=s?s[0]:null, share=g=>tot?` · ${Math.round(100*g/tot)} % des parties`:"";
+    const krow=(label,g,w)=>`<div class="mu"><span></span><span class="nm">${esc(label)}</span><span class="v ${w/g>=.52?"good":w/g<=.48?"bad":""}">${fr1(100*w/g)} %<small>${g} parties${share(g)}</small></span></div>`;
+    const pk=x=>NAMES.perk[x]||`Rune ${x}`, sp=pair=>pair.split("|").map(x=>NAMES.spell[x]||`Sort ${x}`).join(" + ");
+    h+=`<div class="isec"><h3>Runes et sorts</h3><div class="mus"><div><div class="grp">Rune principale</div>${kit.runes.map(([k,g,w])=>krow(pk(k),g,w)).join("")}</div><div><div class="grp">Sorts d'invocateur</div>${kit.spells.map(([k,g,w])=>krow(sp(k),g,w)).join("")}</div></div></div>`;
+  }
   if(TIPS[id])h+=`<div class="isec"><h3>Pour jouer contre ${esc(nm(id))}</h3><p>${esc(TIPS[id])}</p></div>`;
   if(!prof)h+=`<p style="color:var(--muted)">Ce champion n'a pas de profil ${role==="adc"?"ADC":"support"} dans l'appli : il n'est pas proposé.</p>`;
   $("#infoBody").innerHTML=h; $("#infoBody").scrollTop=0;
@@ -1166,7 +1193,7 @@ async function loadData(){
   return d;
 }
 function applyData(d){
-  DATA=d; PATCH=d.patch; META=d.META; COUNTERS=d.COUNTERS; ESTIMATED=d.ESTIMATED||{}; STATS=d.STATS||{}; MATCHUPS=d.MATCHUPS||{}; PHASES=d.PHASES||{}; DUO_STATS=d.DUO_STATS||{}; ADC=d.ADC; SUP=d.SUP; DUOS=d.DUOS; TIPS=d.TIPS; PATCH_NOTES=d.PATCH_NOTES;
+  DATA=d; PATCH=d.patch; META=d.META; COUNTERS=d.COUNTERS; ESTIMATED=d.ESTIMATED||{}; STATS=d.STATS||{}; MATCHUPS=d.MATCHUPS||{}; PHASES=d.PHASES||{}; LANE_WINS=d.LANE_WINS||{}; KITS=d.KITS||{}; NAMES=d.NAMES||{perk:{},spell:{}}; DUO_STATS=d.DUO_STATS||{}; ADC=d.ADC; SUP=d.SUP; DUOS=d.DUOS; TIPS=d.TIPS; PATCH_NOTES=d.PATCH_NOTES;
   document.title=`Botlane Draft — patch ${PATCH}`;
   $("#patchTag").textContent=`Patch ${PATCH}`;
   document.querySelectorAll(".dpatch").forEach(el=>el.textContent=PATCH);
