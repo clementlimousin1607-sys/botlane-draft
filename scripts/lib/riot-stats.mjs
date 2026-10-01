@@ -57,6 +57,8 @@ function percentileScores(entries) {
 export function computeStats(tally, opts = {}) {
   const minPickRate = opts.minPickRate ?? 0.005, minGames = opts.minGames ?? 20;
   const minMatchup = opts.minMatchup ?? 15, maxCounters = opts.maxCounters ?? 3;
+  // 400 virtual games at 50 %: a champion played 134 times at 63 % (one-tricks) does not outrank Jinx at 1 900 games.
+  const prior = opts.prior ?? 400;
   const N = Math.max(1, tally.matches);
   const META = {}, COUNTERS = {}, details = {};
   for (const role of ROLES) {
@@ -68,7 +70,7 @@ export function computeStats(tally, opts = {}) {
     const med = median(scored.map(presence)) || 1;
     // Strength = winrate (shrunk) + how often the champion is picked or banned, relative to the role.
     const entries = scored.map(id => ({
-      id, strength: 100 * (shrunk(t.wins[id] ?? 0, t.games[id], 100) - 0.5) + 2 * Math.log(presence(id) / med),
+      id, strength: 100 * (shrunk(t.wins[id] ?? 0, t.games[id], prior) - 0.5) + 2 * Math.log(presence(id) / med),
     }));
     const scores = percentileScores(entries);
     META[role] = {}; COUNTERS[role] = {}; details[role] = {};
