@@ -219,9 +219,11 @@ test("lane results, keystones and summoner spells are counted", () => {
     addMatch(t, g, idOf);
   }
   const s = computeStats(t, { minMatchup: 15, minPhase: 20 });
-  assert.deepEqual(s.MATCHUPS.adc.Jinx.Caitlyn, [60, 30, 60, 45], "game won 30/60, lane won 45/60");
-  assert.deepEqual(s.LANE_WINS.adc.Jinx, [60, 45]);
-  assert.deepEqual(s.KITS.adc.Jinx, { runes: [[8008, 60, 30]], spells: [["4|7", 60, 30]] });
+  assert.deepEqual(s.MATCHUPS.adc.Jinx.Caitlyn, [60, 30, 60, 45, 0], "game won 30/60, lane dominated 45/60, never by Caitlyn");
+  assert.deepEqual(s.MATCHUPS.adc.Caitlyn.Jinx, [60, 30, 60, 0, 45]);
+  assert.deepEqual(s.LANE_WINS.adc.Jinx, [60, 45, 0]);
+  assert.deepEqual(s.LANE_WINS.adc.Caitlyn, [60, 0, 45]);
+  assert.deepEqual(s.KITS.adc.Jinx, { n: 60, runes: [[8008, 60, 30]], spells: [["4|7", 60, 30]] });
   const plain = newTally(); addMatch(plain, game(true), idOf);
   assert.equal(plain.adc.vs.Jinx.Caitlyn.ln, undefined, "no challenges: lane result unknown, not lost");
 });

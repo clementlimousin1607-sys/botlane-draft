@@ -34,9 +34,10 @@ test("validator catches unknown ids, bad ranges and self-counters", () => {
   bad.patch = "26";
   bad.ESTIMATED = { adc: ["Thresh"], mid: [] };
   bad.MATCHUPS = { adc: { Jinx: { Caitlyn: [10, 12] } } };
+  bad.LANE_WINS = { adc: { Jinx: [10, 8, 5] } };
   bad.DUO_STATS = { "Jinx": [10, 5] };
   const { errors } = validateData(bad, champions);
-  for (const needle of ['champion inconnu "Jynx"', "META.sup.Lux", "se contrer lui-même", "ADC.Jinx", "patch invalide", "ESTIMATED.adc.Thresh", "ESTIMATED.mid", "MATCHUPS.adc.Jinx.Caitlyn", "DUO_STATS : \"Jinx\""])
+  for (const needle of ['champion inconnu "Jynx"', "META.sup.Lux", "se contrer lui-même", "ADC.Jinx", "patch invalide", "ESTIMATED.adc.Thresh", "ESTIMATED.mid", "MATCHUPS.adc.Jinx.Caitlyn", "LANE_WINS.adc.Jinx", "DUO_STATS : \"Jinx\""])
     assert.ok(errors.some(e => e.includes(needle)), `missing error about ${needle}: ${errors.join(" | ")}`);
 });
 

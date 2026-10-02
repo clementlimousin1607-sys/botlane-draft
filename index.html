@@ -509,9 +509,11 @@ const pct=(w,g)=>(100*w/g).toFixed(1).replace(".",",");
 // Résultat en lane de id contre foe (même rôle), dans un sens ou dans l'autre
 function muOf(role,id,foe){
   const m=MATCHUPS[role]||{};
-  // [parties, victoires] ou [parties, victoires, lanes, lanes gagnées]
-  if(m[id]&&m[id][foe]){const [g,w,ln=0,lw=0]=m[id][foe];return{g,w,ln,lw}}
-  if(m[foe]&&m[foe][id]){const [g,w,ln=0,lw=0]=m[foe][id];return{g,w:g-w,ln,lw:ln-lw}}
+  // [parties, victoires] ou [parties, victoires, lanes, dominées par id, dominées par foe].
+  // « Dominée » = nettement en avance en or et XP à la fin de la phase de lane (indicateur Riot) :
+  // dans la plupart des lanes, aucun des deux ne l'est.
+  if(m[id]&&m[id][foe]){const [g,w,ln=0,lw=0,lf=0]=m[id][foe];return{g,w,ln,lw,lf}}
+  if(m[foe]&&m[foe][id]){const [g,w,ln=0,lw=0,lf=0]=m[foe][id];return{g,w:g-w,ln,lw:lf,lf:lw}}
   return null;
 }
 function duoOf(a,s){const v=DUO_STATS[a+"|"+s];return v?{g:v[0],w:v[1]}:null}
@@ -519,7 +521,7 @@ function duoOf(a,s){const v=DUO_STATS[a+"|"+s];return v?{g:v[0],w:v[1]}:null}
 function earlyIdx(role,id){const p=(PHASES[role]||{})[id];return p?100*(p[1]/p[0]-p[3]/p[2]):null}
 function vsLine(R,role,id,E){
   const mu=muOf(role,id,E);
-  if(mu){const v=pts(mu.w,mu.g,50,7);add(R,v,`Contre ${nm(E)} : ${pct(mu.w,mu.g)} % de victoires (${mu.g} parties)${mu.ln?`, lane gagnée ${pct(mu.lw,mu.ln)} %`:""}`);return}
+  if(mu){const v=pts(mu.w,mu.g,50,7);add(R,v,`Contre ${nm(E)} : ${pct(mu.w,mu.g)} % de victoires (${mu.g} parties)${mu.ln?`, lane dominée ${pct(mu.lw,mu.ln)} % / subie ${pct(mu.lf,mu.ln)} %`:""}`);return}
   if((COUNTERS[role][E]||[]).includes(id))add(R,7,`Stats ${PATCH} : bat souvent ${nm(E)}`);
   if((COUNTERS[role][id]||[]).includes(E))add(R,-7,`Stats ${PATCH} : ${nm(E)} gagne souvent ce matchup`);
 }
@@ -839,22 +841,23 @@ function renderAdvice(top){
   const cards=[];
   // Plan de lane
   if((d.e.adc||d.e.sup)&&(myAdc||mySup)){
-    // Du plus précis au moins précis : lanes gagnées dans ces matchups, puis lanes gagnées par
+    // Du plus précis au moins précis : lanes dominées dans ces matchups, puis lanes dominées par
     // champion, puis winrate des parties courtes contre longues, puis profils écrits à la main.
     const laneMu=(r,me,foe)=>{const m=me&&foe&&muOf(r,me,foe);return m&&m.ln?m:null};
     const lA=laneMu("adc",myAdc,d.e.adc), lS=laneMu("sup",mySup,d.e.sup);
-    const laneRate=(r,id)=>{const l=id&&(LANE_WINS[r]||{})[id];return l?100*l[1]/l[0]:null};
+    // Part des lanes dominées parmi les lanes où quelqu'un a dominé (50 = autant que l'inverse)
+    const laneRate=(r,id)=>{const l=id&&(LANE_WINS[r]||{})[id];return l&&l[1]+l[2]>=8?100*l[1]/(l[1]+l[2]):null};
     const lr=[["adc",myAdc],["sup",mySup],["adc",d.e.adc],["sup",d.e.sup]].map(([r,id])=>id?laneRate(r,id):50);
     const ei=[["adc",myAdc],["sup",mySup],["adc",d.e.adc],["sup",d.e.sup]].map(([r,id])=>id?earlyIdx(r,id):0);
     const enough=[myAdc,mySup,d.e.adc,d.e.sup].filter(Boolean).length>=2;
     let diff, proof="";
-    if(lA||lS){
-      const ms=[lA,lS].filter(Boolean), rate=ms.reduce((a,m)=>a+m.lw,0)/ms.reduce((a,m)=>a+m.ln,0);
-      diff=(rate-.5)*40; // 55 % de lanes gagnées = +2, le seuil d'une lane « plus forte »
-      proof=` D'après les parties du patch : ${[[lA,myAdc,d.e.adc],[lS,mySup,d.e.sup]].filter(x=>x[0]).map(([m,a,b])=>`${nm(a)} prend l'avantage en lane contre ${nm(b)} dans ${pct(m.lw,m.ln)} % des cas (${m.ln} lanes)`).join(", ")}.`;
+    const ms=[lA,lS].filter(Boolean), dom=ms.reduce((a,m)=>a+m.lw,0), sub=ms.reduce((a,m)=>a+m.lf,0);
+    if(ms.length&&dom+sub>=8){
+      diff=(dom/(dom+sub)-.5)*16; // dominer 62,5 % des lanes « décidées » = +2, le seuil d'une lane « plus forte »
+      proof=` D'après les parties du patch : ${[[lA,myAdc,d.e.adc],[lS,mySup,d.e.sup]].filter(x=>x[0]).map(([m,a,b])=>`${nm(a)} domine nettement la lane contre ${nm(b)} dans ${pct(m.lw,m.ln)} % des cas, l'inverse dans ${pct(m.lf,m.ln)} %`).join(" ; ")}.`;
     }else if(enough&&lr.every(x=>x!==null)){
-      diff=((lr[0]+lr[1])-(lr[2]+lr[3]))/2/2.5;
-      proof=" D'après les lanes gagnées par chaque champion ce patch.";
+      diff=((lr[0]+lr[1])-(lr[2]+lr[3]))/2/12.5;
+      proof=" D'après les lanes dominées et subies par chaque champion ce patch.";
     }else if(enough&&ei.every(x=>x!==null)){
       diff=((ei[0]+ei[1])-(ei[2]+ei[3]))/2;
       proof=" D'après les parties du patch : winrate des parties de moins de 25 min comparé à celles de plus de 30 min.";
@@ -869,7 +872,7 @@ function renderAdvice(top){
   const vsCard=(role,mine,E)=>{
     if(!E)return;
     const mu=mine&&muOf(role,mine,E);
-    const stat=mu?`${nm(mine)} gagne ${pct(mu.w,mu.g)} % de ses parties contre ${nm(E)} (${mu.g})${mu.ln?` et prend l'avantage en lane dans ${pct(mu.lw,mu.ln)} % des cas`:""}. `:"";
+    const stat=mu?`${nm(mine)} gagne ${pct(mu.w,mu.g)} % de ses parties contre ${nm(E)} (${mu.g}).${mu.ln?` Lane nettement gagnée : ${nm(mine)} dans ${pct(mu.lw,mu.ln)} % des cas, ${nm(E)} dans ${pct(mu.lf,mu.ln)} %.`:""} `:"";
     if(stat||TIPS[E])cards.push(["e",`Contre ${nm(E)}`,stat+(TIPS[E]||""),E]);
   };
   vsCard("adc",myAdc,d.e.adc);
@@ -933,8 +936,8 @@ function renderTier(){
 // Tous les résultats en lane connus de id : [{foe,g,w}]
 function matchupsOf(role,id){
   const out={}, m=MATCHUPS[role]||{};
-  Object.entries(m[id]||{}).forEach(([foe,[g,w,ln=0,lw=0]])=>out[foe]={foe,g,w,ln,lw});
-  Object.entries(m).forEach(([foe,row])=>{if(row[id]&&!out[foe]){const [g,w,ln=0,lw=0]=row[id];out[foe]={foe,g,w:g-w,ln,lw:ln-lw}}});
+  Object.entries(m[id]||{}).forEach(([foe,[g,w,ln=0,lw=0,lf=0]])=>out[foe]={foe,g,w,ln,lw,lf});
+  Object.entries(m).forEach(([foe,row])=>{if(row[id]&&!out[foe]){const [g,w,ln=0,lw=0,lf=0]=row[id];out[foe]={foe,g,w:g-w,ln,lw:lf,lf:lw}}});
   return Object.values(out).filter(x=>x.foe!==id);
 }
 function openInfo(role,id){
@@ -944,7 +947,7 @@ function openInfo(role,id){
   const tile=(v,l)=>`<div><b>${v}</b><span>${l}</span></div>`;
   let h=`<div class="ihead"><div class="ic">${img(id)}</div><div><div class="nm">${esc(nm(id))}</div><div class="sub">Tier ${tl}${est?" (estimé)":""} au patch ${PATCH}</div></div>${m?`<div class="score">${Math.round(m[0])}<small>score méta</small></div>`:""}</div>`;
   const ln=(LANE_WINS[role]||{})[id];
-  if(m)h+=`<div class="tiles">${tile(est?"—":fr1(m[1])+" %","Victoires")}${ln?tile(fr1(100*ln[1]/ln[0])+" %","Lanes gagnées"):""}${tile(s?fr1(s[1])+" %":"—","Pick")}${tile(s&&s[2]!==null?fr1(s[2])+" %":"—","Ban")}${tile(s?s[0].toLocaleString("fr-FR"):"—","Parties")}</div>`;
+  if(m)h+=`<div class="tiles">${tile(est?"—":fr1(m[1])+" %","Victoires")}${ln?tile(fr1(100*ln[1]/ln[0])+" %",`Lane dominée · subie ${fr1(100*ln[2]/ln[0])} %`):""}${tile(s?fr1(s[1])+" %":"—","Pick")}${tile(s&&s[2]!==null?fr1(s[2])+" %":"—","Ban")}${tile(s?s[0].toLocaleString("fr-FR"):"—","Parties")}</div>`;
   else h+=`<p style="color:var(--muted)">Pas assez de parties dans ce rôle ce patch pour avoir des stats.</p>`;
   // Early / late
   const ph=(PHASES[role]||{})[id];
@@ -954,7 +957,7 @@ function openInfo(role,id){
   const mus=matchupsOf(role,id).map(x=>({...x,v:(x.w+25)/(x.g+50)}));
   if(mus.length){
     const best=[...mus].sort((a,b)=>b.v-a.v).slice(0,5), worst=[...mus].sort((a,b)=>a.v-b.v).slice(0,5).filter(x=>!best.includes(x));
-    const li=x=>`<button class="mu" data-info="${role}:${x.foe}"><span class="ic">${img(x.foe)}</span><span class="nm">${esc(nm(x.foe))}</span><span class="v ${x.w/x.g>=.52?"good":x.w/x.g<=.48?"bad":""}">${fr1(100*x.w/x.g)} %<small>${x.g} parties${x.ln?` · lane ${fr1(100*x.lw/x.ln)} %`:""}</small></span></button>`;
+    const li=x=>`<button class="mu" data-info="${role}:${x.foe}"><span class="ic">${img(x.foe)}</span><span class="nm">${esc(nm(x.foe))}</span><span class="v ${x.w/x.g>=.52?"good":x.w/x.g<=.48?"bad":""}">${fr1(100*x.w/x.g)} %<small>${x.g} parties${x.ln?` · lane ${fr1(100*x.lw/x.ln)} / ${fr1(100*x.lf/x.ln)} %`:""}</small></span></button>`;
     h+=`<div class="isec"><h3>En lane contre ${role==="adc"?"les ADC":"les supports"}</h3><div class="mus"><div><div class="grp">Ses meilleurs matchups</div>${best.map(li).join("")}</div><div><div class="grp">Ses pires matchups</div>${worst.map(li).join("")||'<p style="color:var(--muted)">—</p>'}</div></div></div>`;
   }
   // Duos
@@ -966,7 +969,7 @@ function openInfo(role,id){
   // Runes et sorts
   const kit=(KITS[role]||{})[id];
   if(kit){
-    const tot=s?s[0]:null, share=g=>tot?` · ${Math.round(100*g/tot)} % des parties`:"";
+    const tot=kit.n||null, share=g=>tot?` · ${Math.round(100*g/tot)} % des parties`:"";
     const krow=(label,g,w)=>`<div class="mu"><span></span><span class="nm">${esc(label)}</span><span class="v ${w/g>=.52?"good":w/g<=.48?"bad":""}">${fr1(100*w/g)} %<small>${g} parties${share(g)}</small></span></div>`;
     const pk=x=>NAMES.perk[x]||`Rune ${x}`, sp=pair=>pair.split("|").map(x=>NAMES.spell[x]||`Sort ${x}`).join(" + ");
     h+=`<div class="isec"><h3>Runes et sorts</h3><div class="mus"><div><div class="grp">Rune principale</div>${kit.runes.map(([k,g,w])=>krow(pk(k),g,w)).join("")}</div><div><div class="grp">Sorts d'invocateur</div>${kit.spells.map(([k,g,w])=>krow(sp(k),g,w)).join("")}</div></div></div>`;

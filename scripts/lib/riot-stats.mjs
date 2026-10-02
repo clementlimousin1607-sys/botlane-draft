@@ -1,7 +1,7 @@
 // Aggregates Riot match-v5 games into the META / COUNTERS format of data.json.
 // Pure functions (no network), so the maths can be tested on hand-made matches.
 //
-// Only totals are kept: champion games, wins, bans, lane matchups (game won, lane won), bot-lane duos,
+// Only totals are kept: champion games, wins, bans, lane matchups (game won, lane dominated), bot-lane duos,
 // wins by game length, keystone runes and summoner spells. No player id is stored.
 const POSITION_ROLE = { BOTTOM: "adc", UTILITY: "sup" };
 const ROLES = ["adc", "sup"];
@@ -58,8 +58,9 @@ export function addMatch(tally, info, idOf, skip = () => false) {
       t.vs[me] ??= {}; t.vs[me][foe] ??= { g: 0, w: 0 };
       const v = t.vs[me][foe];
       v.g++; if (p.win) v.w++;
-      // Lane won = more gold and experience than the lane opponent at the end of the laning phase
-      // (Riot's challenges.laningPhaseGoldExpAdvantage, 0 or 1; missing in some games).
+      // Lane dominated = Riot's challenges.laningPhaseGoldExpAdvantage (0 or 1, missing in some games):
+      // a clear gold and experience lead at the end of the laning phase. It is set in about a quarter
+      // of ADC lanes only (neither laner has it in the others), so it is NOT "lane won".
       const lw = p.challenges?.laningPhaseGoldExpAdvantage;
       if (lw === 0 || lw === 1) {
         v.ln = (v.ln ?? 0) + 1; v.lw = (v.lw ?? 0) + lw;
@@ -145,17 +146,27 @@ export function computeStats(tally, opts = {}) {
     MATCHUPS[role] = {};
     for (const id of Object.keys(META[role])) {
       const rows = Object.entries(t.vs[id] ?? {}).filter(([foe, m]) => foe !== id && m.g >= minMatchup).sort((a, b) => b[1].g - a[1].g);
-      // [games, wins] or, when the lane result is known in enough games, [games, wins, lanes, lanes won]
-      if (rows.length) MATCHUPS[role][id] = Object.fromEntries(rows.map(([foe, m]) => [foe, (m.ln ?? 0) >= minMatchup ? [m.g, m.w, m.ln, m.lw] : [m.g, m.w]]));
+      // [games, wins] or, when the lane result is known in enough games,
+      // [games, wins, lanes, lanes dominated by id, lanes dominated by foe]
+      if (rows.length) MATCHUPS[role][id] = Object.fromEntries(rows.map(([foe, m]) => [foe, (m.ln ?? 0) >= minMatchup
+        ? [m.g, m.w, m.ln, m.lw ?? 0, Math.min(m.ln, t.vs[foe]?.[id]?.lw ?? 0)] : [m.g, m.w]]));
     }
-    // Lanes won overall: [lanes, lanes won]; keystones and summoner pairs: top picks with [id, games, wins].
+    // Lanes overall: [lanes, lanes dominated, lanes dominated by the opponent]; keystones and summoner
+    // pairs: top picks with [id, games, wins].
     LANE_WINS[role] = {}; KITS[role] = {};
     const top = (o, n) => Object.entries(o).filter(([, [g]]) => g >= minPhase).sort((a, b) => b[1][0] - a[1][0]).slice(0, n).map(([k, [g, w]]) => [k, g, w]);
     for (const id of Object.keys(META[role])) {
-      const l = t.lane[id]; if (l && l[0] >= minPhase) LANE_WINS[role][id] = l;
+      const l = t.lane[id];
+      if (l && l[0] >= minPhase) {
+        // lanes the opponents dominated against id, in the lanes where the result is known
+        const conceded = Object.entries(t.vs).reduce((a, [foe, row]) => a + (foe !== id && row[id]?.ln ? row[id].lw ?? 0 : 0), 0);
+        LANE_WINS[role][id] = [l[0], l[1], Math.min(l[0], conceded)];
+      }
       const k = t.kit[id]; if (!k) continue;
       const runes = top(k.k, 3).map(([kk, g, w]) => [Number(kk), g, w]), spells = top(k.s, 2);
-      if (runes.length || spells.length) KITS[role][id] = { runes, spells };
+      // n = games whose keystone is known (counted since 01/10/2026), for the share of each pick
+      const n = Object.values(k.k).reduce((a, [g]) => a + g, 0);
+      if (runes.length || spells.length) KITS[role][id] = { n, runes, spells };
     }
     // Wins in short and long games: [short games, short wins, long games, long wins].
     PHASES[role] = {};
