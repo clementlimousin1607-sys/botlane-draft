@@ -66,13 +66,15 @@ export async function fetchStats({ patch, champions, previous, env, log = consol
     log(`${players.length} joueurs classés trouvés (${tiers.map(t => TIER_FR[t]).join(", ")}), patch ${patch}` +
       (startMatches ? `, ${startMatches} parties déjà cumulées` : ""));
 
+    // Up to 100 games per player in one request (the API maximum, same cost as 20): a second run on
+    // the same patch still finds new games instead of running out of players.
     // Games of the last 3 weeks, kept only when they were played on the wanted patch. Riot does not
     // publish the patch date: every game of an older patch moves `since` past its start, so the next
     // match lists only hold games of the current patch.
     let requests = 0, lastLog = tally.matches, lastSave = tally.matches;
     outer: for (const puuid of players) {
       if (done()) break;
-      const ids = await api.get(`https://${region}.api.riotgames.com/lol/match/v5/matches/by-puuid/${puuid}/ids?queue=420&type=ranked&startTime=${cache.since}&count=20`);
+      const ids = await api.get(`https://${region}.api.riotgames.com/lol/match/v5/matches/by-puuid/${puuid}/ids?queue=420&type=ranked&startTime=${cache.since}&count=100`);
       requests++;
       for (const id of ids ?? []) {
         if (seen.has(id)) continue;
